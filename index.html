@@ -238,6 +238,19 @@
       background: rgba(2, 4, 18, 0.94);
     }
 
+    .overlay.animating,
+    .overlay.closing {
+      transition: background 260ms ease;
+    }
+
+    .overlay.animating {
+      background: rgba(2, 4, 18, 0);
+    }
+
+    .overlay.closing {
+      background: rgba(2, 4, 18, 0);
+    }
+
     .overlay.active {
       display: grid;
       place-items: center;
@@ -256,6 +269,15 @@
       border: 4px solid #05091d;
       text-align: center;
       cursor: pointer;
+      transform-origin: top left;
+    }
+
+    .overlay.animating .clue-card {
+      transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .overlay.closing .clue-card {
+      transition: transform 240ms cubic-bezier(0.4, 0, 0.9, 0.2);
     }
 
     .close-button {
@@ -291,7 +313,7 @@
     }
 
     .response {
-      display: none;
+      display: block;
       margin: 0;
       padding-top: 28px;
       border-top: 2px solid rgba(255, 255, 255, 0.32);
@@ -300,13 +322,22 @@
       font-weight: 800;
       line-height: 1.16;
       align-self: center;
+      opacity: 0;
+      transform: translateY(10px);
+      visibility: hidden;
     }
 
     .clue-card.revealed {
       cursor: default;
     }
 
-    .clue-card.revealed .response,
+    .clue-card.revealed .response {
+      opacity: 1;
+      transform: translateY(0);
+      visibility: visible;
+      transition: opacity 220ms ease, transform 220ms ease;
+    }
+
     .clue-card.revealed .score-actions {
       display: flex;
     }
@@ -440,7 +471,9 @@
     const state = {
       board: null,
       selectedClueId: null,
-      revealed: false
+      revealed: false,
+      selectedTileRect: null,
+      isTransitioning: false
     };
 
     const els = {
@@ -693,7 +726,7 @@
         return tile;
       }
 
-      tile.addEventListener("click", () => openClue(clue.id));
+      tile.addEventListener("click", () => openClue(clue.id, tile));
       return tile;
     }
 
@@ -716,7 +749,7 @@
       els.sourceLink.hidden = false;
     }
 
-    function openClue(clueId) {
+    function openClue(clueId, sourceTile) {
       const clue = findClue(clueId);
 
       if (!clue || clue.status !== "available" || clue.outcome) {
@@ -725,6 +758,7 @@
 
       state.selectedClueId = clue.id;
       state.revealed = false;
+      state.selectedTileRect = sourceTile ? sourceTile.getBoundingClientRect() : null;
       els.overlayValue.textContent = clue.value;
       els.overlayClue.textContent = clue.clueText;
       els.overlayResponse.textContent = clue.response;
@@ -732,10 +766,67 @@
       els.overlay.hidden = false;
       els.overlay.classList.add("active");
       document.body.classList.add("overlay-open");
+      animateClueOpen();
+    }
+
+    function animateClueOpen() {
+      const sourceRect = state.selectedTileRect;
+
+      if (!sourceRect) {
+        return;
+      }
+
+      const targetRect = els.clueCard.getBoundingClientRect();
+      const scaleX = sourceRect.width / targetRect.width;
+      const scaleY = sourceRect.height / targetRect.height;
+      const translateX = sourceRect.left - targetRect.left;
+      const translateY = sourceRect.top - targetRect.top;
+
+      state.isTransitioning = true;
+      els.overlay.classList.add("animating");
+      els.clueCard.style.transform = "translate(" + translateX + "px, " + translateY + "px) scale(" + scaleX + ", " + scaleY + ")";
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          els.overlay.style.background = "rgba(2, 4, 18, 0.94)";
+          els.clueCard.style.transform = "translate(0, 0) scale(1, 1)";
+        });
+      });
+
+      window.setTimeout(() => {
+        els.overlay.classList.remove("animating");
+        els.overlay.style.background = "";
+        els.clueCard.style.transform = "";
+        state.isTransitioning = false;
+      }, 300);
+    }
+
+    function animateClueClose(afterClose) {
+      const sourceRect = state.selectedTileRect;
+
+      if (!sourceRect) {
+        finishClose(afterClose);
+        return;
+      }
+
+      const targetRect = els.clueCard.getBoundingClientRect();
+      const scaleX = sourceRect.width / targetRect.width;
+      const scaleY = sourceRect.height / targetRect.height;
+      const translateX = sourceRect.left - targetRect.left;
+      const translateY = sourceRect.top - targetRect.top;
+
+      state.isTransitioning = true;
+      els.overlay.classList.add("closing");
+      els.overlay.style.background = "rgba(2, 4, 18, 0)";
+      els.clueCard.style.transform = "translate(" + translateX + "px, " + translateY + "px) scale(" + scaleX + ", " + scaleY + ")";
+
+      window.setTimeout(() => {
+        finishClose(afterClose);
+      }, 260);
     }
 
     function revealClue() {
-      if (!state.selectedClueId || state.revealed) {
+      if (!state.selectedClueId || state.revealed || state.isTransitioning) {
         return;
       }
 
@@ -743,16 +834,29 @@
       els.clueCard.classList.add("revealed");
     }
 
-    function closeClue() {
+    function closeClue(afterClose) {
       state.selectedClueId = null;
       state.revealed = false;
+      state.selectedTileRect = null;
+      state.isTransitioning = false;
+      els.overlay.classList.remove("animating", "closing");
+      els.overlay.style.background = "";
+      els.clueCard.style.transform = "";
       els.overlay.classList.remove("active");
       els.overlay.hidden = true;
       document.body.classList.remove("overlay-open");
+
+      if (typeof afterClose === "function") {
+        afterClose();
+      }
+    }
+
+    function finishClose(afterClose) {
+      closeClue(afterClose);
     }
 
     function markOutcome(outcome) {
-      if (!state.selectedClueId || !state.revealed) {
+      if (!state.selectedClueId || !state.revealed || state.isTransitioning) {
         return;
       }
 
@@ -762,9 +866,10 @@
       }
 
       clue.outcome = outcome;
-      closeClue();
-      renderBoard();
-      renderHeader();
+      animateClueClose(() => {
+        renderBoard();
+        renderHeader();
+      });
     }
 
     function findClue(clueId) {
@@ -794,7 +899,11 @@
       revealClue();
     });
 
-    els.closeClue.addEventListener("click", closeClue);
+    els.closeClue.addEventListener("click", () => {
+      if (!state.isTransitioning) {
+        animateClueClose();
+      }
+    });
     els.markCorrect.addEventListener("click", () => markOutcome("correct"));
     els.markMissed.addEventListener("click", () => markOutcome("missed"));
   </script>

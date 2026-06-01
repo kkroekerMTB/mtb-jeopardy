@@ -25,6 +25,8 @@ Every day at standup, we close our time by playing some Jeopardy. We open up the
 * The color scheme must match what is displayed on the Jeopardy TV show for the contestants; it does not have to match the source website.
 * The visible app title should be generic, such as `Standup Jeopardy`. Do not use official Jeopardy logos or imply affiliation.
 * Selecting a dollar-value tile should open a full-screen clue view showing only the clue text. Clicking the clue view should reveal the correct response.
+* Opening a clue should use a smooth transition that expands from the clicked tile into the full-screen clue view. Closing the clue view should use a matching reverse transition back toward the clicked tile.
+* Revealing the correct response should fade the response into view smoothly.
 * The app should not enforce answering in Jeopardy form.
 * The app should track whether each revealed clue was answered correctly.
 * This is team Jeopardy: the whole team's "brain trust" answers together. Do not track scores, turns, or correctness by player.
