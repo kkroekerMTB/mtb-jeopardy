@@ -67,7 +67,11 @@ Every day at standup, we close our time by playing some Jeopardy. We open up the
 
 ## Deployment
 
-* The resulting HTML file will be opened in a browser from the filesystem; it does not have to be deployed anywhere.
+* The site is published with GitHub Pages from the root-level `index.html` file.
+* The GitHub Actions workflow at `.github/workflows/pages.yml` runs the Playwright test suite with `npm test` before deployment.
+* Deployment is gated on passing tests: the Pages artifact is packaged and deployed only after the Playwright job succeeds.
+* The workflow runs on pushes to `main` and can also be run manually with `workflow_dispatch`.
+* GitHub Pages should be configured to use GitHub Actions as its source.
 
 ## Gotchas
 
