@@ -1,0 +1,803 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>Standup Jeopardy</title>
+  <style>
+    :root {
+      --board-blue: #071f8f;
+      --board-blue-dark: #03145f;
+      --tile-border: #05091d;
+      --jeopardy-gold: #f2c94c;
+      --text-light: #fff8dc;
+      --correct: #178a45;
+      --missed: #a52525;
+      --panel: #10142a;
+      --panel-soft: #1b2140;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    body {
+      min-width: 980px;
+      min-height: 100vh;
+      margin: 0;
+      background: #090b18;
+      color: var(--text-light);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    body.overlay-open {
+      overflow: hidden;
+    }
+
+    button,
+    a {
+      font: inherit;
+    }
+
+    .app {
+      min-height: 100vh;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: end;
+      gap: 18px;
+      padding: 12px 14px;
+      background: var(--panel);
+      border: 1px solid #2b3154;
+    }
+
+    .title-row {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .episode-meta {
+      min-height: 18px;
+      color: #c9cfeb;
+      font-size: 14px;
+    }
+
+    .source-link {
+      color: #f7d760;
+      font-size: 14px;
+      text-decoration: none;
+    }
+
+    .source-link:hover {
+      text-decoration: underline;
+    }
+
+    .stats {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .stat {
+      min-width: 110px;
+      padding: 8px 10px;
+      background: var(--panel-soft);
+      border: 1px solid #333b66;
+      text-align: center;
+    }
+
+    .stat-label {
+      display: block;
+      margin-bottom: 2px;
+      color: #c9cfeb;
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    .stat-value {
+      color: #fff;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .status {
+      flex: 1;
+      min-height: 58vh;
+      display: grid;
+      place-items: center;
+      padding: 40px;
+      background: var(--board-blue-dark);
+      border: 2px solid #20264a;
+      text-align: center;
+    }
+
+    .status-title {
+      margin: 0 0 14px;
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .loader {
+      width: 42px;
+      height: 42px;
+      margin: 0 auto 16px;
+      border: 5px solid rgba(255, 255, 255, 0.22);
+      border-top-color: var(--jeopardy-gold);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(var(--category-count), minmax(132px, 1fr));
+      grid-auto-rows: minmax(96px, 1fr);
+      flex: 1;
+      min-height: 640px;
+      border: 3px solid var(--tile-border);
+      background: var(--tile-border);
+      gap: 3px;
+    }
+
+    .category,
+    .tile {
+      display: grid;
+      place-items: center;
+      min-width: 0;
+      padding: 10px;
+      border: 0;
+      text-align: center;
+    }
+
+    .category {
+      background: var(--board-blue-dark);
+      color: #fff;
+      font-size: clamp(15px, 1.2vw, 22px);
+      font-weight: 800;
+      line-height: 1.12;
+      text-transform: uppercase;
+    }
+
+    .tile {
+      position: relative;
+      background: var(--board-blue);
+      color: var(--jeopardy-gold);
+      font-size: clamp(30px, 3.8vw, 58px);
+      font-weight: 900;
+      line-height: 1;
+      cursor: pointer;
+      text-shadow: 2px 2px 0 #05091d;
+    }
+
+    .tile:not(:disabled):hover {
+      background: #0a28b8;
+    }
+
+    .tile:disabled {
+      cursor: default;
+    }
+
+    .tile.unavailable {
+      background: #1d2444;
+      color: #aeb4cf;
+      font-size: 30px;
+      text-shadow: none;
+    }
+
+    .tile.used {
+      opacity: 0.68;
+      color: rgba(242, 201, 76, 0.72);
+      text-shadow: none;
+    }
+
+    .tile.used::after {
+      content: "";
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--outcome-color);
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7);
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      padding: 24px;
+      background: rgba(2, 4, 18, 0.94);
+    }
+
+    .overlay.active {
+      display: grid;
+      place-items: center;
+    }
+
+    .clue-card {
+      position: relative;
+      width: min(1120px, 96vw);
+      min-height: min(700px, 88vh);
+      padding: 58px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 28px;
+      background: var(--board-blue);
+      border: 4px solid #05091d;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .close-button {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 42px;
+      height: 42px;
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      background: rgba(0, 0, 0, 0.22);
+      color: #fff;
+      font-size: 28px;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .close-button:hover {
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    .clue-value {
+      color: var(--jeopardy-gold);
+      font-size: 30px;
+      font-weight: 900;
+    }
+
+    .clue-text {
+      margin: 0;
+      color: #fff;
+      font-size: clamp(34px, 4.2vw, 64px);
+      font-weight: 800;
+      line-height: 1.14;
+    }
+
+    .response {
+      display: none;
+      margin: 0;
+      padding-top: 28px;
+      border-top: 2px solid rgba(255, 255, 255, 0.32);
+      color: var(--jeopardy-gold);
+      font-size: clamp(28px, 3.2vw, 48px);
+      font-weight: 800;
+      line-height: 1.16;
+      align-self: center;
+    }
+
+    .clue-card.revealed {
+      cursor: default;
+    }
+
+    .clue-card.revealed .response,
+    .clue-card.revealed .score-actions {
+      display: flex;
+    }
+
+    .score-actions {
+      display: none;
+      justify-content: center;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    .score-button {
+      min-width: 180px;
+      padding: 18px 24px;
+      border: 2px solid rgba(255, 255, 255, 0.72);
+      color: #fff;
+      font-size: 24px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .score-button.correct {
+      background: var(--correct);
+    }
+
+    .score-button.missed {
+      background: var(--missed);
+    }
+
+    .score-button:hover {
+      filter: brightness(1.1);
+    }
+
+    #overlayValue {
+      border-bottom: solid var(--jeopardy-gold) 2px;
+    }
+
+    @media (max-width: 1120px) {
+      body {
+        min-width: 760px;
+      }
+
+      .app {
+        padding: 10px;
+      }
+
+      .header {
+        grid-template-columns: 1fr;
+        align-items: start;
+      }
+
+      .stats {
+        justify-content: flex-start;
+      }
+
+      .board {
+        grid-auto-rows: minmax(82px, 1fr);
+        min-height: 560px;
+      }
+
+      .tile {
+        font-size: 34px;
+      }
+
+      .clue-card {
+        min-height: 82vh;
+        padding: 44px 34px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+    <header class="header">
+      <div>
+        <div class="title-row">
+          <h1>Standup Jeopardy</h1>
+          <a id="sourceLink" class="source-link" href="#" target="_blank" rel="noopener" hidden>Source episode</a>
+        </div>
+        <div id="episodeMeta" class="episode-meta"></div>
+      </div>
+      <div class="stats" aria-label="Team tally">
+        <div class="stat">
+          <span class="stat-label">Correct</span>
+          <span id="correctCount" class="stat-value">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Missed</span>
+          <span id="missedCount" class="stat-value">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Net</span>
+          <span id="netValue" class="stat-value">$0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Unavailable</span>
+          <span id="unavailableCount" class="stat-value">0</span>
+        </div>
+      </div>
+    </header>
+
+    <section id="status" class="status" aria-live="polite">
+      <div>
+        <div class="loader" aria-hidden="true"></div>
+        <p id="statusTitle" class="status-title">Finding latest game...</p>
+      </div>
+    </section>
+
+    <section id="board" class="board" aria-label="Jeopardy board" hidden></section>
+  </main>
+
+  <section id="overlay" class="overlay" aria-modal="true" role="dialog" hidden>
+    <article id="clueCard" class="clue-card">
+      <button id="closeClue" class="close-button" type="button" aria-label="Close clue">&times;</button>
+      <div class="clue-value"><span id="overlayValue"></span></div>
+      <p id="overlayClue" class="clue-text"></p>
+      <p id="overlayResponse" class="response"></p>
+      <div class="score-actions" aria-label="Mark clue result">
+        <button id="markCorrect" class="score-button correct" type="button">Correct</button>
+        <button id="markMissed" class="score-button missed" type="button">Missed</button>
+      </div>
+    </article>
+  </section>
+
+  <script>
+    const J_ARCHIVE_HOME_URL = "https://www.j-archive.com/";
+    const CORS_PROXY_URL = "https://api.codetabs.com/v1/proxy/?quest=";
+    const FALLBACK_EPISODE_HTML_URL = "";
+
+    const state = {
+      board: null,
+      selectedClueId: null,
+      revealed: false
+    };
+
+    const els = {
+      status: document.getElementById("status"),
+      statusTitle: document.getElementById("statusTitle"),
+      board: document.getElementById("board"),
+      episodeMeta: document.getElementById("episodeMeta"),
+      sourceLink: document.getElementById("sourceLink"),
+      correctCount: document.getElementById("correctCount"),
+      missedCount: document.getElementById("missedCount"),
+      netValue: document.getElementById("netValue"),
+      unavailableCount: document.getElementById("unavailableCount"),
+      overlay: document.getElementById("overlay"),
+      clueCard: document.getElementById("clueCard"),
+      closeClue: document.getElementById("closeClue"),
+      overlayValue: document.getElementById("overlayValue"),
+      overlayClue: document.getElementById("overlayClue"),
+      overlayResponse: document.getElementById("overlayResponse"),
+      markCorrect: document.getElementById("markCorrect"),
+      markMissed: document.getElementById("markMissed")
+    };
+
+    init();
+
+    async function init() {
+      try {
+        setLoadingText("Finding latest game...");
+        const latestUrl = await findLatestEpisodeUrl();
+        setLoadingText("Loading board...");
+        const episodeHtml = await fetchText(latestUrl);
+        const episodeDoc = parseHtml(episodeHtml);
+        const board = parseEpisode(episodeDoc, latestUrl);
+
+        state.board = board;
+        renderBoard();
+        renderHeader();
+      } catch (error) {
+        console.error("Couldn't load latest game", error);
+        showFailure();
+      }
+    }
+
+    async function findLatestEpisodeUrl() {
+      const homeHtml = await fetchText(J_ARCHIVE_HOME_URL);
+      const homeDoc = parseHtml(homeHtml);
+      const recentLink = homeDoc.querySelector("body > table > tbody > tr > td > p:nth-child(3) > a:last-child");
+
+      if (!recentLink) {
+        throw new Error("Recent episodes link not found on J-Archive home page.");
+      }
+
+      const archiveUrl = resolveUrl(recentLink.getAttribute("href"), J_ARCHIVE_HOME_URL);
+      const archiveHtml = await fetchText(archiveUrl);
+      const archiveDoc = parseHtml(archiveHtml);
+      const latestLink = archiveDoc.querySelector("#content > table > tbody > tr:nth-child(1) > td:first-child > a");
+
+      if (!latestLink) {
+        throw new Error("Latest episode link not found on recent episodes page.");
+      }
+
+      return resolveUrl(latestLink.getAttribute("href"), archiveUrl);
+    }
+
+    async function fetchText(url) {
+      const targetUrl = url || FALLBACK_EPISODE_HTML_URL;
+
+      if (!targetUrl) {
+        throw new Error("No URL provided for fetch.");
+      }
+
+      const proxiedUrl = CORS_PROXY_URL ? CORS_PROXY_URL + targetUrl : targetUrl;
+      const response = await fetch(proxiedUrl);
+
+      if (!response.ok) {
+        throw new Error("Fetch failed for " + targetUrl + " with status " + response.status);
+      }
+
+      return response.text();
+    }
+
+    function parseHtml(html) {
+      return new DOMParser().parseFromString(html, "text/html");
+    }
+
+    function parseEpisode(doc, episodeUrl) {
+      const round = doc.querySelector("table.round");
+
+      if (!round) {
+        throw new Error("First round table not found.");
+      }
+
+      const rows = Array.from(round.querySelectorAll(":scope > tbody > tr, :scope > tr"));
+      const categoryCells = rows[0] ? Array.from(rows[0].querySelectorAll("td.category")) : [];
+      const categories = categoryCells.map((cell, index) => ({
+        id: "category-" + index,
+        title: cleanText(cell.querySelector(".category_name") || cell) || "Category"
+      }));
+
+      if (!categories.length) {
+        throw new Error("No categories found in first round.");
+      }
+
+      const clues = [];
+
+      rows.slice(1).forEach((row, rowIndex) => {
+        const clueCells = Array.from(row.querySelectorAll(":scope > td.clue"));
+        categories.forEach((category, categoryIndex) => {
+          const cell = clueCells[categoryIndex];
+          clues.push(parseClueCell(cell, category.id, rowIndex, categoryIndex));
+        });
+      });
+
+      return {
+        episodeUrl,
+        episodeTitle: getEpisodeTitle(doc),
+        categories,
+        clues
+      };
+    }
+
+    function parseClueCell(cell, categoryId, rowIndex, categoryIndex) {
+      const id = categoryId + "-row-" + rowIndex;
+
+      if (!cell) {
+        return unavailableClue(id, categoryId, rowIndex, categoryIndex, "Missing clue cell.");
+      }
+
+      if (cell.querySelector("img, audio, video, object, embed")) {
+        return unavailableClue(id, categoryId, rowIndex, categoryIndex, "Unsupported media clue.");
+      }
+
+      const value = cleanText(cell.querySelector(".clue_value"));
+      const clueText = cleanText(cell.querySelector(".clue_text"));
+      const response = cleanText(cell.querySelector("em.correct_response"));
+
+      if (!value || !clueText || !response) {
+        return unavailableClue(id, categoryId, rowIndex, categoryIndex, "Malformed clue.");
+      }
+
+      return {
+        id,
+        categoryId,
+        rowIndex,
+        categoryIndex,
+        value,
+        numericValue: parseDollarValue(value),
+        clueText,
+        response,
+        status: "available",
+        outcome: null
+      };
+    }
+
+    function unavailableClue(id, categoryId, rowIndex, categoryIndex, reason) {
+      console.warn(reason, { id, categoryId, rowIndex, categoryIndex });
+      return {
+        id,
+        categoryId,
+        rowIndex,
+        categoryIndex,
+        value: "N/A",
+        numericValue: 0,
+        clueText: "",
+        response: "",
+        status: "unavailable",
+        outcome: null
+      };
+    }
+
+    function getEpisodeTitle(doc) {
+      const titleCandidates = [
+        doc.querySelector("#game_title"),
+        doc.querySelector("#content h1"),
+        doc.querySelector("title")
+      ];
+
+      for (const candidate of titleCandidates) {
+        const text = cleanText(candidate);
+        if (text) {
+          return text.replace(/\s*-\s*J! Archive\s*$/i, "");
+        }
+      }
+
+      return "";
+    }
+
+    function cleanText(node) {
+      if (!node) {
+        return "";
+      }
+
+      return node.textContent.replace(/\s+/g, " ").trim();
+    }
+
+    function parseDollarValue(value) {
+      const parsed = Number(value.replace(/[^\d.-]/g, ""));
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function resolveUrl(value, baseUrl) {
+      if (!value) {
+        throw new Error("Cannot resolve empty URL.");
+      }
+
+      return new URL(value, baseUrl).href;
+    }
+
+    function renderBoard() {
+      const board = state.board;
+      const rows = Math.max(...board.clues.map((clue) => clue.rowIndex)) + 1;
+
+      els.status.hidden = true;
+      els.board.hidden = false;
+      els.board.style.setProperty("--category-count", board.categories.length);
+      els.board.replaceChildren();
+
+      board.categories.forEach((category) => {
+        const header = document.createElement("div");
+        header.className = "category";
+        header.textContent = category.title;
+        els.board.append(header);
+      });
+
+      for (let rowIndex = 0; rowIndex < rows; rowIndex += 1) {
+        board.categories.forEach((category, categoryIndex) => {
+          const clue = board.clues.find((item) => item.rowIndex === rowIndex && item.categoryIndex === categoryIndex);
+          els.board.append(renderTile(clue));
+        });
+      }
+    }
+
+    function renderTile(clue) {
+      const tile = document.createElement("button");
+      tile.type = "button";
+      tile.className = "tile";
+
+      if (!clue || clue.status === "unavailable") {
+        tile.classList.add("unavailable");
+        tile.textContent = "N/A";
+        tile.disabled = true;
+        return tile;
+      }
+
+      tile.textContent = clue.value;
+
+      if (clue.outcome) {
+        tile.classList.add("used");
+        tile.style.setProperty("--outcome-color", clue.outcome === "correct" ? "var(--correct)" : "var(--missed)");
+        tile.disabled = true;
+        return tile;
+      }
+
+      tile.addEventListener("click", () => openClue(clue.id));
+      return tile;
+    }
+
+    function renderHeader() {
+      const board = state.board;
+      const availableClues = board.clues.filter((clue) => clue.status === "available");
+      const correct = availableClues.filter((clue) => clue.outcome === "correct");
+      const missed = availableClues.filter((clue) => clue.outcome === "missed");
+      const unavailable = board.clues.filter((clue) => clue.status === "unavailable").length;
+      const net = correct.reduce((sum, clue) => sum + clue.numericValue, 0) -
+        missed.reduce((sum, clue) => sum + clue.numericValue, 0);
+
+      els.correctCount.textContent = String(correct.length);
+      els.missedCount.textContent = String(missed.length);
+      els.netValue.textContent = formatCurrency(net);
+      els.unavailableCount.textContent = String(unavailable);
+      els.episodeMeta.textContent = board.episodeTitle;
+
+      els.sourceLink.href = board.episodeUrl;
+      els.sourceLink.hidden = false;
+    }
+
+    function openClue(clueId) {
+      const clue = findClue(clueId);
+
+      if (!clue || clue.status !== "available" || clue.outcome) {
+        return;
+      }
+
+      state.selectedClueId = clue.id;
+      state.revealed = false;
+      els.overlayValue.textContent = clue.value;
+      els.overlayClue.textContent = clue.clueText;
+      els.overlayResponse.textContent = clue.response;
+      els.clueCard.classList.remove("revealed");
+      els.overlay.hidden = false;
+      els.overlay.classList.add("active");
+      document.body.classList.add("overlay-open");
+    }
+
+    function revealClue() {
+      if (!state.selectedClueId || state.revealed) {
+        return;
+      }
+
+      state.revealed = true;
+      els.clueCard.classList.add("revealed");
+    }
+
+    function closeClue() {
+      state.selectedClueId = null;
+      state.revealed = false;
+      els.overlay.classList.remove("active");
+      els.overlay.hidden = true;
+      document.body.classList.remove("overlay-open");
+    }
+
+    function markOutcome(outcome) {
+      if (!state.selectedClueId || !state.revealed) {
+        return;
+      }
+
+      const clue = findClue(state.selectedClueId);
+      if (!clue || clue.outcome) {
+        return;
+      }
+
+      clue.outcome = outcome;
+      closeClue();
+      renderBoard();
+      renderHeader();
+    }
+
+    function findClue(clueId) {
+      return state.board.clues.find((clue) => clue.id === clueId);
+    }
+
+    function formatCurrency(value) {
+      const prefix = value < 0 ? "-$" : "$";
+      return prefix + Math.abs(value).toLocaleString("en-US");
+    }
+
+    function setLoadingText(text) {
+      els.statusTitle.textContent = text;
+    }
+
+    function showFailure() {
+      els.status.hidden = false;
+      els.board.hidden = true;
+      els.status.innerHTML = "<div><p class=\"status-title\">Couldn't load latest game</p></div>";
+    }
+
+    els.clueCard.addEventListener("click", (event) => {
+      if (event.target.closest("button")) {
+        return;
+      }
+
+      revealClue();
+    });
+
+    els.closeClue.addEventListener("click", closeClue);
+    els.markCorrect.addEventListener("click", () => markOutcome("correct"));
+    els.markMissed.addEventListener("click", () => markOutcome("missed"));
+  </script>
+</body>
+
+</html>
