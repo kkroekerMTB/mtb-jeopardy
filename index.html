@@ -501,11 +501,9 @@
     async function init() {
       try {
         setLoadingText("Finding latest game...");
-        const latestUrl = await findLatestEpisodeUrl();
+        const episodeUrls = await findEpisodeUrls();
         setLoadingText("Loading board...");
-        const episodeHtml = await fetchText(latestUrl);
-        const episodeDoc = parseHtml(episodeHtml);
-        const board = parseEpisode(episodeDoc, latestUrl);
+        const board = await loadFirstAvailableBoard(episodeUrls);
 
         state.board = board;
         renderBoard();
@@ -516,7 +514,7 @@
       }
     }
 
-    async function findLatestEpisodeUrl() {
+    async function findEpisodeUrls() {
       const homeHtml = await fetchText(J_ARCHIVE_HOME_URL);
       const homeDoc = parseHtml(homeHtml);
       const recentLink = homeDoc.querySelector("body > table > tbody > tr > td > p:nth-child(3) > a:last-child");
@@ -528,13 +526,30 @@
       const archiveUrl = resolveUrl(recentLink.getAttribute("href"), J_ARCHIVE_HOME_URL);
       const archiveHtml = await fetchText(archiveUrl);
       const archiveDoc = parseHtml(archiveHtml);
-      const latestLink = archiveDoc.querySelector("#content > table > tbody > tr:nth-child(1) > td:first-child > a");
+      const episodeLinks = Array.from(archiveDoc.querySelectorAll("#content > table > tbody > tr > td:first-child > a"));
+      const episodeUrls = episodeLinks.map((link) => resolveUrl(link.getAttribute("href"), archiveUrl));
 
-      if (!latestLink) {
-        throw new Error("Latest episode link not found on recent episodes page.");
+      if (!episodeUrls.length) {
+        throw new Error("Episode links not found on recent episodes page.");
       }
 
-      return resolveUrl(latestLink.getAttribute("href"), archiveUrl);
+      return episodeUrls;
+    }
+
+    async function loadFirstAvailableBoard(episodeUrls) {
+      for (const episodeUrl of episodeUrls) {
+        const episodeHtml = await fetchText(episodeUrl);
+        const episodeDoc = parseHtml(episodeHtml);
+
+        if (!hasRoundTable(episodeDoc)) {
+          console.warn("Episode has no first round table; trying previous episode.", { episodeUrl });
+          continue;
+        }
+
+        return parseEpisode(episodeDoc, episodeUrl);
+      }
+
+      throw new Error("No archived episode with a first round table was found.");
     }
 
     async function fetchText(url) {
@@ -556,6 +571,10 @@
 
     function parseHtml(html) {
       return new DOMParser().parseFromString(html, "text/html");
+    }
+
+    function hasRoundTable(doc) {
+      return Boolean(doc.querySelector("table.round"));
     }
 
     function parseEpisode(doc, episodeUrl) {

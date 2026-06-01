@@ -7,6 +7,7 @@ const proxyPrefix = "https://api.codetabs.com/v1/proxy/?quest=";
 const homeUrl = "https://www.j-archive.com/";
 const seasonUrl = "https://www.j-archive.com/showseason.php?season=42";
 const latestGameUrl = "https://www.j-archive.com/showgame.php?game_id=9999";
+const previousGameUrl = "https://www.j-archive.com/showgame.php?game_id=9998";
 
 test.describe("Standup Jeopardy", () => {
   test.beforeEach(async ({ page }) => {
@@ -41,6 +42,17 @@ test.describe("Standup Jeopardy", () => {
     await expect(page.locator(".loader")).toBeVisible();
     await expect(page.getByText("SCIENCE & NATURE")).toBeVisible();
     await expect(page.locator("#status")).toBeHidden();
+  });
+
+  test("falls back to the previous episode when the latest episode has no round table", async ({ page }) => {
+    await routeJArchive(page, { latestEpisodeMissingRound: true });
+
+    await page.goto(appUrl);
+
+    await expect(page.getByText("Show #9998 - Friday, May 29, 2026")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Source episode" })).toHaveAttribute("href", previousGameUrl);
+    await expect(page.getByText("SCIENCE & NATURE")).toBeVisible();
+    await expect(page.locator(".tile")).toHaveCount(30);
   });
 
   test("normalizes scraped content to plain text and reveals exact responses", async ({ page }) => {
@@ -229,7 +241,20 @@ async function routeJArchive(page, options = {}) {
     }
 
     if (targetUrl === latestGameUrl) {
-      await route.fulfill({ status: 200, contentType: "text/html", body: episodeHtml() });
+      await route.fulfill({
+        status: 200,
+        contentType: "text/html",
+        body: options.latestEpisodeMissingRound ? partialEpisodeHtml() : episodeHtml()
+      });
+      return;
+    }
+
+    if (targetUrl === previousGameUrl) {
+      await route.fulfill({
+        status: 200,
+        contentType: "text/html",
+        body: episodeHtml("9998", "Friday, May 29, 2026")
+      });
       return;
     }
 
@@ -275,13 +300,26 @@ function brokenSeasonHtml() {
   `;
 }
 
-function episodeHtml() {
+function partialEpisodeHtml() {
   return `
     <!doctype html>
     <html>
       <head><title>Show #9999 - Monday, June 1, 2026 - J! Archive</title></head>
       <body>
         <div id="game_title">Show #9999 - Monday, June 1, 2026</div>
+        <div id="contestants">Contestants are listed before clues are archived.</div>
+      </body>
+    </html>
+  `;
+}
+
+function episodeHtml(showNumber = "9999", date = "Monday, June 1, 2026") {
+  return `
+    <!doctype html>
+    <html>
+      <head><title>Show #${showNumber} - ${date} - J! Archive</title></head>
+      <body>
+        <div id="game_title">Show #${showNumber} - ${date}</div>
         <table class="round"><tbody>
           <tr>
             <td class="category"><table><tr><td class="category_name"> Science &amp; <i>Nature</i> </td></tr></table></td>
