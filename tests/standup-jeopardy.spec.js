@@ -27,6 +27,9 @@ test.describe("Standup Jeopardy", () => {
     await expect(page.locator(".tile")).toHaveCount(30);
     await expect(page.locator(".tile.unavailable")).toHaveCount(7);
     await expect(page.locator("#unavailableCount")).toHaveText("7");
+    await expect(page.locator(".tile").first()).toHaveCSS("background-color", "rgb(7, 31, 143)");
+    await expect(page.locator(".tile").first()).toHaveCSS("color", "rgb(242, 201, 76)");
+    await expect(page.getByRole("button", { name: "$1,234" })).toBeVisible();
   });
 
   test("shows a loading state while fetching and then hides it after the board renders", async ({ page }) => {
@@ -101,6 +104,18 @@ test.describe("Standup Jeopardy", () => {
     await expect(page.locator("#correctCount")).toHaveText("0");
     await expect(page.locator("#missedCount")).toHaveText("1");
     await expect(page.locator("#netValue")).toHaveText("-$400");
+  });
+
+  test("scores Daily Doubles like normal clues", async ({ page }) => {
+    await page.goto(appUrl);
+
+    await page.getByRole("button", { name: "$200" }).nth(2).click();
+    await page.locator("#clueCard").click();
+    await expect(page.getByText("normal scoring")).toBeVisible();
+    await page.getByRole("button", { name: "Correct" }).click();
+
+    await expect(page.locator("#correctCount")).toHaveText("1");
+    await expect(page.locator("#netValue")).toHaveText("$200");
   });
 
   test("closes before reveal without marking the tile used", async ({ page }) => {
@@ -310,7 +325,7 @@ function episodeHtml() {
   ])}
           ${roundRow(1000, [
     clue("$1000", "Science clue 1000", "science 1000"),
-    clue("$1000", "Word clue 1000", "word 1000"),
+            clue("$1,234", "Word clue 1000", "word 1000"),
     clue("$1000", "Daily clue 1000", "daily 1000"),
     clue("$1000", "Malformed category playable 1000", "fine"),
     clue("$1000", "Missing category playable 1000", "fine"),
