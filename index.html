@@ -465,7 +465,11 @@
 
   <script>
     const J_ARCHIVE_HOME_URL = "https://www.j-archive.com/";
-    const CORS_PROXY_URL = "https://api.codetabs.com/v1/proxy/?quest=";
+    const CORS_PROXY_URL = "https://api.codetabs.com/v1/proxy?quest=";
+    const CORS_PROXY_URLS = [
+      (targetUrl) => CORS_PROXY_URL + encodeURIComponent(targetUrl),
+      (targetUrl) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl)
+    ];
     const FALLBACK_EPISODE_HTML_URL = "";
 
     const state = {
@@ -559,14 +563,24 @@
         throw new Error("No URL provided for fetch.");
       }
 
-      const proxiedUrl = CORS_PROXY_URL ? CORS_PROXY_URL + targetUrl : targetUrl;
-      const response = await fetch(proxiedUrl);
+      const requestUrls = CORS_PROXY_URLS.length ? CORS_PROXY_URLS.map((buildUrl) => buildUrl(targetUrl)) : [targetUrl];
+      const errors = [];
 
-      if (!response.ok) {
-        throw new Error("Fetch failed for " + targetUrl + " with status " + response.status);
+      for (const requestUrl of requestUrls) {
+        try {
+          const response = await fetch(requestUrl);
+
+          if (response.ok) {
+            return response.text();
+          }
+
+          errors.push(requestUrl + " returned status " + response.status);
+        } catch (error) {
+          errors.push(requestUrl + " failed: " + error.message);
+        }
       }
 
-      return response.text();
+      throw new Error("Fetch failed for " + targetUrl + ": " + errors.join("; "));
     }
 
     function parseHtml(html) {

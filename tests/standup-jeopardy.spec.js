@@ -3,7 +3,9 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const appUrl = "http://127.0.0.1:4173/index.html";
-const proxyPrefix = "https://api.codetabs.com/v1/proxy/?quest=";
+const codetabsProxyPrefix = "https://api.codetabs.com/v1/proxy?quest=";
+const allOriginsProxyPrefix = "https://api.allorigins.win/raw?url=";
+const proxyPrefixes = [codetabsProxyPrefix, allOriginsProxyPrefix];
 const homeUrl = "https://www.j-archive.com/";
 const seasonUrl = "https://www.j-archive.com/showseason.php?season=42";
 const latestGameUrl = "https://www.j-archive.com/showgame.php?game_id=9999";
@@ -199,6 +201,15 @@ test.describe("Standup Jeopardy", () => {
     await expect.poll(() => errors.some((message) => message.includes("Couldn't load latest game"))).toBe(true);
   });
 
+  test("falls back to a secondary proxy when Codetabs returns 522", async ({ page }) => {
+    await routeJArchive(page, { codetabsOutage: true });
+
+    await page.goto(appUrl);
+
+    await expect(page.getByText("Show #9999 - Monday, June 1, 2026")).toBeVisible();
+    await expect(page.getByText("SCIENCE & NATURE")).toBeVisible();
+  });
+
   test("keeps MVP scope controls out of the UI", async ({ page }) => {
     await page.goto(appUrl);
 
@@ -215,13 +226,29 @@ test("static file stays self-contained and dependency-free", async () => {
   expect(html).not.toMatch(/<link\s+[^>]*rel=["']?stylesheet/i);
   expect(html).not.toMatch(/<img\b/i);
   expect(html).not.toContain("sample");
-  expect(html).toContain('const CORS_PROXY_URL = "https://api.codetabs.com/v1/proxy/?quest=";');
+  expect(html).toContain('const CORS_PROXY_URL = "https://api.codetabs.com/v1/proxy?quest=";');
+  expect(html).toContain("encodeURIComponent(targetUrl)");
 });
 
 async function routeJArchive(page, options = {}) {
-  await page.route(proxyPrefix + "**", async (route) => {
+  await page.route("https://api.codetabs.com/v1/proxy**", async (route) => {
+    if (options.codetabsOutage) {
+      await route.fulfill({ status: 522, contentType: "text/plain", body: "Codetabs timeout" });
+      return;
+    }
+
+    await fulfillProxiedJArchiveRequest(route, options);
+  });
+
+  await page.route(allOriginsProxyPrefix + "**", async (route) => {
+    await fulfillProxiedJArchiveRequest(route, options);
+  });
+}
+
+async function fulfillProxiedJArchiveRequest(route, options = {}) {
     const requestUrl = route.request().url();
-    const targetUrl = requestUrl.slice(proxyPrefix.length);
+    const proxyPrefix = proxyPrefixes.find((prefix) => requestUrl.startsWith(prefix));
+    const targetUrl = proxyPrefix ? decodeURIComponent(requestUrl.slice(proxyPrefix.length)) : "";
 
     if (targetUrl === homeUrl) {
       if (options.delayHomeMs) {
@@ -259,7 +286,6 @@ async function routeJArchive(page, options = {}) {
     }
 
     await route.abort();
-  });
 }
 
 function homeHtml() {
