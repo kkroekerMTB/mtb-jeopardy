@@ -201,13 +201,32 @@ test.describe("Standup Jeopardy", () => {
     await expect.poll(() => errors.some((message) => message.includes("Couldn't load latest game"))).toBe(true);
   });
 
-  test("falls back to a secondary proxy when Codetabs returns 522", async ({ page }) => {
-    await routeJArchive(page, { codetabsOutage: true });
+  test("falls back to Codetabs when AllOrigins returns 408", async ({ page }) => {
+    await routeJArchive(page, { allOriginsOutage: true });
 
     await page.goto(appUrl);
 
     await expect(page.getByText("Show #9999 - Monday, June 1, 2026")).toBeVisible();
     await expect(page.getByText("SCIENCE & NATURE")).toBeVisible();
+  });
+
+  test("retries transient proxy failures with exponential backoff", async ({ page }) => {
+    const allOriginsRequestTimes = [];
+    await routeJArchive(page, {
+      transientProxyFailures: {
+        prefix: allOriginsProxyPrefix,
+        targetUrl: homeUrl,
+        failuresBeforeSuccess: 2,
+        onRequest: () => allOriginsRequestTimes.push(Date.now())
+      }
+    });
+
+    await page.goto(appUrl);
+
+    await expect(page.getByText("Show #9999 - Monday, June 1, 2026")).toBeVisible();
+    expect(allOriginsRequestTimes).toHaveLength(3);
+    expect(allOriginsRequestTimes[1] - allOriginsRequestTimes[0]).toBeGreaterThanOrEqual(250);
+    expect(allOriginsRequestTimes[2] - allOriginsRequestTimes[1]).toBeGreaterThanOrEqual(550);
   });
 
   test("keeps MVP scope controls out of the UI", async ({ page }) => {
@@ -228,6 +247,8 @@ test("static file stays self-contained and dependency-free", async () => {
   expect(html).not.toContain("sample");
   expect(html).toContain('const CORS_PROXY_URL = "https://api.codetabs.com/v1/proxy?quest=";');
   expect(html).toContain("encodeURIComponent(targetUrl)");
+  expect(html).toContain("const FETCH_MAX_ATTEMPTS = 3;");
+  expect(html).toContain("Math.pow(2, attempt - 1)");
 });
 
 async function routeJArchive(page, options = {}) {
@@ -241,6 +262,11 @@ async function routeJArchive(page, options = {}) {
   });
 
   await page.route(allOriginsProxyPrefix + "**", async (route) => {
+    if (options.allOriginsOutage) {
+      await route.fulfill({ status: 408, contentType: "text/plain", body: "AllOrigins timeout" });
+      return;
+    }
+
     await fulfillProxiedJArchiveRequest(route, options);
   });
 }
@@ -249,6 +275,21 @@ async function fulfillProxiedJArchiveRequest(route, options = {}) {
     const requestUrl = route.request().url();
     const proxyPrefix = proxyPrefixes.find((prefix) => requestUrl.startsWith(prefix));
     const targetUrl = proxyPrefix ? decodeURIComponent(requestUrl.slice(proxyPrefix.length)) : "";
+    const transientFailures = options.transientProxyFailures;
+
+    if (
+      transientFailures &&
+      transientFailures.prefix === proxyPrefix &&
+      transientFailures.targetUrl === targetUrl
+    ) {
+      transientFailures.onRequest();
+      transientFailures.requestCount = (transientFailures.requestCount || 0) + 1;
+
+      if (transientFailures.requestCount <= transientFailures.failuresBeforeSuccess) {
+        await route.fulfill({ status: 522, contentType: "text/plain", body: "Transient proxy timeout" });
+        return;
+      }
+    }
 
     if (targetUrl === homeUrl) {
       if (options.delayHomeMs) {

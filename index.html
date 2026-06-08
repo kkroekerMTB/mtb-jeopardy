@@ -467,9 +467,11 @@
     const J_ARCHIVE_HOME_URL = "https://www.j-archive.com/";
     const CORS_PROXY_URL = "https://api.codetabs.com/v1/proxy?quest=";
     const CORS_PROXY_URLS = [
-      (targetUrl) => CORS_PROXY_URL + encodeURIComponent(targetUrl),
-      (targetUrl) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl)
+      (targetUrl) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl),
+      (targetUrl) => CORS_PROXY_URL + encodeURIComponent(targetUrl)
     ];
+    const FETCH_MAX_ATTEMPTS = 3;
+    const FETCH_RETRY_BASE_DELAY_MS = 300;
     const FALLBACK_EPISODE_HTML_URL = "";
 
     const state = {
@@ -567,20 +569,30 @@
       const errors = [];
 
       for (const requestUrl of requestUrls) {
-        try {
-          const response = await fetch(requestUrl);
+        for (let attempt = 1; attempt <= FETCH_MAX_ATTEMPTS; attempt += 1) {
+          try {
+            const response = await fetch(requestUrl);
 
-          if (response.ok) {
-            return response.text();
+            if (response.ok) {
+              return response.text();
+            }
+
+            errors.push(requestUrl + " returned status " + response.status + " on attempt " + attempt);
+          } catch (error) {
+            errors.push(requestUrl + " failed on attempt " + attempt + ": " + error.message);
           }
 
-          errors.push(requestUrl + " returned status " + response.status);
-        } catch (error) {
-          errors.push(requestUrl + " failed: " + error.message);
+          if (attempt < FETCH_MAX_ATTEMPTS) {
+            await wait(FETCH_RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1));
+          }
         }
       }
 
       throw new Error("Fetch failed for " + targetUrl + ": " + errors.join("; "));
+    }
+
+    function wait(milliseconds) {
+      return new Promise((resolve) => setTimeout(resolve, milliseconds));
     }
 
     function parseHtml(html) {
