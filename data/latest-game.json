@@ -1,0 +1,392 @@
+{
+  "episodeUrl": "https://www.j-archive.com/showgame.php?game_id=9471",
+  "episodeTitle": "Show #9582 - Tuesday, June 9, 2026",
+  "categories": [
+    {
+      "id": "category-0",
+      "title": "GOOD & BAD DADS IN HISTORY"
+    },
+    {
+      "id": "category-1",
+      "title": "SAY THE CELEB'S NAME RIGHT!"
+    },
+    {
+      "id": "category-2",
+      "title": "ON THE GREEN"
+    },
+    {
+      "id": "category-3",
+      "title": "MAGAZINES BY RECURRING FEATURE"
+    },
+    {
+      "id": "category-4",
+      "title": "WORDS FROM TV"
+    },
+    {
+      "id": "category-5",
+      "title": "THE WONDER TWINS ACTIVATE!"
+    }
+  ],
+  "clues": [
+    {
+      "id": "category-0-row-0",
+      "categoryId": "category-0",
+      "rowIndex": 0,
+      "categoryIndex": 0,
+      "value": "$200",
+      "numericValue": 200,
+      "clueText": "With the best of intentions, Czar Nicholas II left healthcare of his only son Alexei to this \"Mad Monk\"",
+      "response": "Rasputin",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-1-row-0",
+      "categoryId": "category-1",
+      "rowIndex": 0,
+      "categoryIndex": 1,
+      "value": "$200",
+      "numericValue": 200,
+      "clueText": "Wait, what?! This Oscar-nominated actress said her family says her last name with an \"ee\" sound, not \"ay\"; now that's wicked!",
+      "response": "Ariana Grande",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-2-row-0",
+      "categoryId": "category-2",
+      "rowIndex": 0,
+      "categoryIndex": 2,
+      "value": "$200",
+      "numericValue": 200,
+      "clueText": "This organization founded in 1971 has protected animals in various ways, including guiding boats between whales & harpooners",
+      "response": "Greenpeace",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-3-row-0",
+      "categoryId": "category-3",
+      "rowIndex": 0,
+      "categoryIndex": 3,
+      "value": "$200",
+      "numericValue": 200,
+      "clueText": "Cheers & Jeers;Fall Preview",
+      "response": "TV Guide",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-4-row-0",
+      "categoryId": "category-4",
+      "rowIndex": 0,
+      "categoryIndex": 4,
+      "value": "$200",
+      "numericValue": 200,
+      "clueText": "Later co-opted by surfers & turtles, this expression of enthusiasm was first popularized by the TV series \"Howdy Doody\"",
+      "response": "cowabunga",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-5-row-0",
+      "categoryId": "category-5",
+      "rowIndex": 0,
+      "categoryIndex": 5,
+      "value": "$200",
+      "numericValue": 200,
+      "clueText": "He thought his most important invention was the photophone, which he & Charles Tainter created to send calls over a beam of light",
+      "response": "Alexander Graham Bell",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-0-row-1",
+      "categoryId": "category-0",
+      "rowIndex": 1,
+      "categoryIndex": 0,
+      "value": "$400",
+      "numericValue": 400,
+      "clueText": "In 1884 he left his infant daughter Alice with his sister while he lived on a ranch in the Dakotas",
+      "response": "Theodore Roosevelt",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-1-row-1",
+      "categoryId": "category-1",
+      "rowIndex": 1,
+      "categoryIndex": 1,
+      "value": "$400",
+      "numericValue": 400,
+      "clueText": "A type of drink leads folks to screw up this \"Hamnet\" star's name, but put the stress on the first syllable instead",
+      "response": "Paul Mescal",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-2-row-1",
+      "categoryId": "category-2",
+      "rowIndex": 1,
+      "categoryIndex": 2,
+      "value": "$400",
+      "numericValue": 400,
+      "clueText": "Home of the Masters, this golf course has a subterranean cooling system to cool its greens during hot summer months",
+      "response": "Augusta National",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-3-row-1",
+      "categoryId": "category-3",
+      "rowIndex": 1,
+      "categoryIndex": 3,
+      "value": "$400",
+      "numericValue": 400,
+      "clueText": "Spy vs. Spy;The Fold-In",
+      "response": "MAD magazine",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-4-row-1",
+      "categoryId": "category-4",
+      "rowIndex": 1,
+      "categoryIndex": 4,
+      "value": "$400",
+      "numericValue": 400,
+      "clueText": "\"American Idol\" judge Randy Jackson bestowed many \"dawg\"s upon us, in addition to popularizing this synonym for off-key",
+      "response": "pitchy",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-5-row-1",
+      "categoryId": "category-5",
+      "rowIndex": 1,
+      "categoryIndex": 5,
+      "value": "$400",
+      "numericValue": 400,
+      "clueText": "A 1969 video shows creators Baer & Harrison playing an early version of this back-&-forth video game \"when we ought to be working\"",
+      "response": "Pong",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-0-row-2",
+      "categoryId": "category-0",
+      "rowIndex": 2,
+      "categoryIndex": 0,
+      "value": "$600",
+      "numericValue": 600,
+      "clueText": "Aka Dracul, the II prince of Wallachia of this name gave up 2 sons to an Ottoman sultan with little intention of getting them back",
+      "response": "Vlad",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-1-row-2",
+      "categoryId": "category-1",
+      "rowIndex": 2,
+      "categoryIndex": 1,
+      "value": "$600",
+      "numericValue": 600,
+      "clueText": "The first part of the surname of this actress, Cosette on film, is said like a weary exhale; the second, like Mr. Armisen",
+      "response": "(Amanda) Seyfried",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-2-row-2",
+      "categoryId": "category-2",
+      "rowIndex": 2,
+      "categoryIndex": 2,
+      "value": "$600",
+      "numericValue": 600,
+      "clueText": "In 1775 Ethan Allen no longer led this Vermont militia, but not because at 37, Mr. Allen didn't quite fit the title anymore",
+      "response": "the Green Mountain Boys",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-3-row-2",
+      "categoryId": "category-3",
+      "rowIndex": 2,
+      "categoryIndex": 3,
+      "value": "$600",
+      "numericValue": 600,
+      "clueText": "Heroes Among Us; British Royal Family News",
+      "response": "People magazine",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-4-row-2",
+      "categoryId": "category-4",
+      "rowIndex": 2,
+      "categoryIndex": 4,
+      "value": "$600",
+      "numericValue": 600,
+      "clueText": "Kris Jenner has trademarked this word she coined for her role as a working parent who wears multiple hats",
+      "response": "a momager",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-5-row-2",
+      "categoryId": "category-5",
+      "rowIndex": 2,
+      "categoryIndex": 5,
+      "value": "$600",
+      "numericValue": 600,
+      "clueText": "In the early 20th c. psychologists Binet & Simon developed the granddaddy of these, for kids struggling in école",
+      "response": "IQ tests",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-0-row-3",
+      "categoryId": "category-0",
+      "rowIndex": 3,
+      "categoryIndex": 0,
+      "value": "$800",
+      "numericValue": 800,
+      "clueText": "This Tudor statesman & saint had his daughters educated; one paid him back by retrieving his severed head for a decent burial",
+      "response": "Sir Thomas More",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-1-row-3",
+      "categoryId": "category-1",
+      "rowIndex": 3,
+      "categoryIndex": 1,
+      "value": "$800",
+      "numericValue": 800,
+      "clueText": "The second syllable in the single name of this actress is not to \"die\" for, but rather sounds like a part of the calendar",
+      "response": "Zendaya",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-2-row-3",
+      "categoryId": "category-2",
+      "rowIndex": 3,
+      "categoryIndex": 2,
+      "value": "$800",
+      "numericValue": 800,
+      "clueText": "Shakespeare mentions this song by name twice in \"The Merry Wives of Windsor\"",
+      "response": "\"Greensleeves\"",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-3-row-3",
+      "categoryId": "category-3",
+      "rowIndex": 3,
+      "categoryIndex": 3,
+      "value": "$800",
+      "numericValue": 800,
+      "clueText": "Healthy You;Big5-Oh",
+      "response": "AARP: The Magazine",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-4-row-3",
+      "categoryId": "category-4",
+      "rowIndex": 3,
+      "categoryIndex": 4,
+      "value": "$800",
+      "numericValue": 800,
+      "clueText": "\"Star Trek\" gave us this alliterative term for a state of deep understanding between two people; it's now also the name of a party game",
+      "response": "a mind meld",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-5-row-3",
+      "categoryId": "category-5",
+      "rowIndex": 3,
+      "categoryIndex": 5,
+      "value": "$800",
+      "numericValue": 800,
+      "clueText": "Cooke & Wheatstone's version of this had early popularity, sending a message in 1845 from Slough to Paddington to help catch a killer",
+      "response": "a telegraph",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-0-row-4",
+      "categoryId": "category-0",
+      "rowIndex": 4,
+      "categoryIndex": 0,
+      "value": "$1000",
+      "numericValue": 1000,
+      "clueText": "Spanish king Philip IV & his niece wife let their infanta shine in the center of this Velázquez painting",
+      "response": "Las Meninas",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-1-row-4",
+      "categoryId": "category-1",
+      "rowIndex": 4,
+      "categoryIndex": 1,
+      "value": "$1000",
+      "numericValue": 1000,
+      "clueText": "This \"Succession\" actress says her last name \"looks like look or book\", but it's pronounced with an \"ooo\"",
+      "response": "Sarah Snook",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-2-row-4",
+      "categoryId": "category-2",
+      "rowIndex": 4,
+      "categoryIndex": 2,
+      "value": "$1000",
+      "numericValue": 1000,
+      "clueText": "Verdigris is a type of this thin layer formed by acidic reactions; it's that greenish hue on weathered copper",
+      "response": "a patina",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-3-row-4",
+      "categoryId": "category-3",
+      "rowIndex": 4,
+      "categoryIndex": 3,
+      "value": "N/A",
+      "numericValue": 0,
+      "clueText": "",
+      "response": "",
+      "status": "unavailable",
+      "outcome": null
+    },
+    {
+      "id": "category-4-row-4",
+      "categoryId": "category-4",
+      "rowIndex": 4,
+      "categoryIndex": 4,
+      "value": "$1000",
+      "numericValue": 1000,
+      "clueText": "Bugs Bunny used this name of Noah's great-grandson, a mighty biblical hunter, to refer to Elmer Fudd; now it's a synonym for idiot",
+      "response": "Nimrod",
+      "status": "available",
+      "outcome": null
+    },
+    {
+      "id": "category-5-row-4",
+      "categoryId": "category-5",
+      "rowIndex": 4,
+      "categoryIndex": 5,
+      "value": "$1000",
+      "numericValue": 1000,
+      "clueText": "Cousteau & Gagnan's diving invention, first dubbed the scaphandre autonome, gained fame under this anatomical name",
+      "response": "the Aqua-Lung",
+      "status": "available",
+      "outcome": null
+    }
+  ]
+}

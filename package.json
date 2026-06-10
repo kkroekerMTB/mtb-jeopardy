@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "update:data": "node scripts/update-latest-game.js",
     "test": "playwright test"
   },
   "devDependencies": {
