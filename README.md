@@ -82,7 +82,8 @@ That script opens J-Archive with Playwright from Node, follows the latest-season
 * The site is published with GitHub Pages from the root-level `index.html` file.
 * The GitHub Actions workflow at `.github/workflows/pages.yml` runs the Playwright test suite with `npm test` before deployment.
 * Deployment is gated on passing tests: the Pages artifact is packaged and deployed only after the Playwright job succeeds.
-* The workflow runs on pushes to `main` and can also be run manually with `workflow_dispatch`.
+* The workflow runs on pushes to `main`, can be run manually with `workflow_dispatch`, and runs daily at 13:00 UTC, which is 8:00 AM EST.
+* The package job refreshes `data/latest-game.json` with `npm run update:data` before uploading the Pages artifact.
 * GitHub Pages should be configured to use GitHub Actions as its source.
 
 ## Gotchas
