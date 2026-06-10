@@ -19,6 +19,18 @@ Every day at standup, we close our time by playing some Jeopardy. We open up the
             - `em.correct_response` contains the correct answer (e.g. "a cell") and is hidden by default.
 * The above defines the data points we care about for the purposes of standup.
 
+## Data generation
+
+The app reads the latest board from `data/latest-game.json`. Runtime browser code does not scrape J-Archive or call a CORS proxy.
+
+To refresh the data source, run:
+
+```sh
+npm run update:data
+```
+
+That script opens J-Archive with Playwright from Node, follows the latest-season/latest-episode path, skips episodes that do not yet have a first-round table, transforms the first round into JSON, and writes `data/latest-game.json`.
+
 ## What we want
 
 * I want a static HTML website which fetches the relevant Jeopardy data for the most recent episode, formats it as JSON, and renders the the retrieved questions and answers in the classic Jeopardy grid.
@@ -56,13 +68,13 @@ Every day at standup, we close our time by playing some Jeopardy. We open up the
 
 ## Architecture Notes
 
-* The website should be a single HTML file containing all relevant HTML, CSS, and JavaScript.
+* The website should be a static HTML website with local generated JSON data.
 * The static entrypoint should be a root-level `index.html` file.
-* Since the file will be opened from the filesystem, direct browser requests to J-Archive may be blocked by CORS. The page should define the CORS proxy URL and any fallback data path as code constants rather than exposing configuration UI. Fetching/parsing errors may surface in the browser dev console.
+* The browser should read `data/latest-game.json` from the same origin as the page. It should not make runtime requests to J-Archive or public CORS proxies.
 * Do not embed sample episode payloads in the static page.
 * Do not depend on external libraries, fonts, scripts, stylesheets, or other CDN resources. Use plain HTML, CSS, and JavaScript browser APIs only.
-* The app should always fetch and render only the most recent episode. Do not add an episode picker or other browsing functionality.
-* The MVP should render only the first `table.round` from the most recent episode. Do not include Double Jeopardy, Final Jeopardy, or round navigation.
+* The data generator should fetch and render only the most recent archived episode with a first-round table. Do not add an episode picker or other browsing functionality.
+* The MVP should render only the first round from the generated data. Do not include Double Jeopardy, Final Jeopardy, or round navigation.
 * Used tile state only needs to live in memory for the current page session. Do not persist board state across refreshes.
 
 ## Deployment

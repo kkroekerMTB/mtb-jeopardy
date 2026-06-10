@@ -3,20 +3,14 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const appUrl = "http://127.0.0.1:4173/index.html";
-const codetabsProxyPrefix = "https://api.codetabs.com/v1/proxy?quest=";
-const allOriginsProxyPrefix = "https://api.allorigins.win/raw?url=";
-const proxyPrefixes = [codetabsProxyPrefix, allOriginsProxyPrefix];
-const homeUrl = "https://www.j-archive.com/";
-const seasonUrl = "https://www.j-archive.com/showseason.php?season=42";
 const latestGameUrl = "https://www.j-archive.com/showgame.php?game_id=9999";
-const previousGameUrl = "https://www.j-archive.com/showgame.php?game_id=9998";
 
 test.describe("Standup Jeopardy", () => {
   test.beforeEach(async ({ page }) => {
-    await routeJArchive(page);
+    await routeGameData(page);
   });
 
-  test("fetches the latest episode, renders only the first round, and shows metadata", async ({ page }) => {
+  test("loads generated game data, renders the board, and shows metadata", async ({ page }) => {
     await page.goto(appUrl);
 
     await expect(page.getByRole("heading", { name: "Standup Jeopardy" })).toBeVisible();
@@ -35,29 +29,18 @@ test.describe("Standup Jeopardy", () => {
     await expect(page.getByRole("button", { name: "$1,234" })).toBeVisible();
   });
 
-  test("shows a loading state while fetching and then hides it after the board renders", async ({ page }) => {
-    await routeJArchive(page, { delayHomeMs: 500 });
+  test("shows a loading state while fetching local data and then hides it after the board renders", async ({ page }) => {
+    await routeGameData(page, { delayMs: 500 });
 
     await page.goto(appUrl);
 
-    await expect(page.getByText("Finding latest game...")).toBeVisible();
+    await expect(page.getByText("Loading board...")).toBeVisible();
     await expect(page.locator(".loader")).toBeVisible();
     await expect(page.getByText("SCIENCE & NATURE")).toBeVisible();
     await expect(page.locator("#status")).toBeHidden();
   });
 
-  test("falls back to the previous episode when the latest episode has no round table", async ({ page }) => {
-    await routeJArchive(page, { latestEpisodeMissingRound: true });
-
-    await page.goto(appUrl);
-
-    await expect(page.getByText("Show #9998 - Friday, May 29, 2026")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Source episode" })).toHaveAttribute("href", previousGameUrl);
-    await expect(page.getByText("SCIENCE & NATURE")).toBeVisible();
-    await expect(page.locator(".tile")).toHaveCount(30);
-  });
-
-  test("normalizes scraped content to plain text and reveals exact responses", async ({ page }) => {
+  test("renders generated plain-text clues and reveals exact responses", async ({ page }) => {
     await page.goto(appUrl);
 
     await page.getByRole("button", { name: "$200" }).first().click();
@@ -146,7 +129,7 @@ test.describe("Standup Jeopardy", () => {
     await expect(tile).not.toHaveClass(/used/);
   });
 
-  test("disables malformed, missing, and media clues without adding them to scoring", async ({ page }) => {
+  test("disables unavailable clues without adding them to scoring", async ({ page }) => {
     await page.goto(appUrl);
 
     await expect(page.locator(".tile.unavailable")).toHaveCount(7);
@@ -186,47 +169,19 @@ test.describe("Standup Jeopardy", () => {
     await expect(page.getByRole("button", { name: "$200" }).first()).toBeEnabled();
   });
 
-  test("surfaces a visible load failure and logs details when the latest game cannot be found", async ({ page }) => {
+  test("surfaces a visible load failure and logs details when local data cannot be loaded", async ({ page }) => {
     const errors = [];
     page.on("console", (message) => {
       if (message.type() === "error") {
         errors.push(message.text());
       }
     });
-    await routeJArchive(page, { brokenSeason: true });
+    await routeGameData(page, { status: 500, body: "{}" });
 
     await page.goto(appUrl);
 
     await expect(page.getByText("Couldn't load latest game")).toBeVisible();
     await expect.poll(() => errors.some((message) => message.includes("Couldn't load latest game"))).toBe(true);
-  });
-
-  test("falls back to Codetabs when AllOrigins returns 408", async ({ page }) => {
-    await routeJArchive(page, { allOriginsOutage: true });
-
-    await page.goto(appUrl);
-
-    await expect(page.getByText("Show #9999 - Monday, June 1, 2026")).toBeVisible();
-    await expect(page.getByText("SCIENCE & NATURE")).toBeVisible();
-  });
-
-  test("retries transient proxy failures with exponential backoff", async ({ page }) => {
-    const allOriginsRequestTimes = [];
-    await routeJArchive(page, {
-      transientProxyFailures: {
-        prefix: allOriginsProxyPrefix,
-        targetUrl: homeUrl,
-        failuresBeforeSuccess: 2,
-        onRequest: () => allOriginsRequestTimes.push(Date.now())
-      }
-    });
-
-    await page.goto(appUrl);
-
-    await expect(page.getByText("Show #9999 - Monday, June 1, 2026")).toBeVisible();
-    expect(allOriginsRequestTimes).toHaveLength(3);
-    expect(allOriginsRequestTimes[1] - allOriginsRequestTimes[0]).toBeGreaterThanOrEqual(250);
-    expect(allOriginsRequestTimes[2] - allOriginsRequestTimes[1]).toBeGreaterThanOrEqual(550);
   });
 
   test("keeps MVP scope controls out of the UI", async ({ page }) => {
@@ -238,252 +193,120 @@ test.describe("Standup Jeopardy", () => {
   });
 });
 
-test("static file stays self-contained and dependency-free", async () => {
+test("static file loads only local generated data and stays dependency-free", async () => {
   const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 
   expect(html).not.toMatch(/<script\s+[^>]*src=/i);
   expect(html).not.toMatch(/<link\s+[^>]*rel=["']?stylesheet/i);
   expect(html).not.toMatch(/<img\b/i);
   expect(html).not.toContain("sample");
-  expect(html).toContain('const CORS_PROXY_URL = "https://api.codetabs.com/v1/proxy?quest=";');
-  expect(html).toContain("encodeURIComponent(targetUrl)");
-  expect(html).toContain("const FETCH_MAX_ATTEMPTS = 3;");
-  expect(html).toContain("Math.pow(2, attempt - 1)");
+  expect(html).not.toContain("api.codetabs.com");
+  expect(html).not.toContain("api.allorigins.win");
+  expect(html).not.toContain("www.j-archive.com");
+  expect(html).toContain('const GAME_DATA_URL = "data/latest-game.json";');
 });
 
-async function routeJArchive(page, options = {}) {
-  await page.route("https://api.codetabs.com/v1/proxy**", async (route) => {
-    if (options.codetabsOutage) {
-      await route.fulfill({ status: 522, contentType: "text/plain", body: "Codetabs timeout" });
-      return;
+test("generated game data is available in the repository", async () => {
+  const dataPath = path.join(__dirname, "..", "data", "latest-game.json");
+  const board = JSON.parse(fs.readFileSync(dataPath, "utf8"));
+
+  expect(board.episodeUrl).toMatch(/^https:\/\/www\.j-archive\.com\/showgame\.php\?game_id=\d+$/);
+  expect(board.categories).toHaveLength(6);
+  expect(board.clues.length).toBeGreaterThanOrEqual(1);
+});
+
+async function routeGameData(page, options = {}) {
+  await page.route("**/data/latest-game.json", async (route) => {
+    if (options.delayMs) {
+      await new Promise((resolve) => setTimeout(resolve, options.delayMs));
     }
 
-    await fulfillProxiedJArchiveRequest(route, options);
+    await route.fulfill({
+      status: options.status || 200,
+      contentType: "application/json",
+      body: options.body || JSON.stringify(testBoard())
+    });
   });
-
-  await page.route(allOriginsProxyPrefix + "**", async (route) => {
-    if (options.allOriginsOutage) {
-      await route.fulfill({ status: 408, contentType: "text/plain", body: "AllOrigins timeout" });
-      return;
-    }
-
-    await fulfillProxiedJArchiveRequest(route, options);
-  });
 }
 
-async function fulfillProxiedJArchiveRequest(route, options = {}) {
-    const requestUrl = route.request().url();
-    const proxyPrefix = proxyPrefixes.find((prefix) => requestUrl.startsWith(prefix));
-    const targetUrl = proxyPrefix ? decodeURIComponent(requestUrl.slice(proxyPrefix.length)) : "";
-    const transientFailures = options.transientProxyFailures;
+function testBoard() {
+  const categories = [
+    "SCIENCE & NATURE",
+    "WORDPLAY",
+    "DAILY DOUBLE-ISH",
+    "MALFORMED",
+    "MISSING",
+    "ALL MEDIA"
+  ].map((title, index) => ({
+    id: "category-" + index,
+    title
+  }));
 
-    if (
-      transientFailures &&
-      transientFailures.prefix === proxyPrefix &&
-      transientFailures.targetUrl === targetUrl
-    ) {
-      transientFailures.onRequest();
-      transientFailures.requestCount = (transientFailures.requestCount || 0) + 1;
-
-      if (transientFailures.requestCount <= transientFailures.failuresBeforeSuccess) {
-        await route.fulfill({ status: 522, contentType: "text/plain", body: "Transient proxy timeout" });
-        return;
-      }
-    }
-
-    if (targetUrl === homeUrl) {
-      if (options.delayHomeMs) {
-        await new Promise((resolve) => setTimeout(resolve, options.delayHomeMs));
-      }
-      await route.fulfill({ status: 200, contentType: "text/html", body: homeHtml() });
-      return;
-    }
-
-    if (targetUrl === seasonUrl) {
-      await route.fulfill({
-        status: 200,
-        contentType: "text/html",
-        body: options.brokenSeason ? brokenSeasonHtml() : seasonHtml()
-      });
-      return;
-    }
-
-    if (targetUrl === latestGameUrl) {
-      await route.fulfill({
-        status: 200,
-        contentType: "text/html",
-        body: options.latestEpisodeMissingRound ? partialEpisodeHtml() : episodeHtml()
-      });
-      return;
-    }
-
-    if (targetUrl === previousGameUrl) {
-      await route.fulfill({
-        status: 200,
-        contentType: "text/html",
-        body: episodeHtml("9998", "Friday, May 29, 2026")
-      });
-      return;
-    }
-
-    await route.abort();
+  return {
+    episodeUrl: latestGameUrl,
+    episodeTitle: "Show #9999 - Monday, June 1, 2026",
+    categories,
+    clues: [
+      available(0, 0, "$200", "A mass of cytoplasm bound by a membrane, it's the smallest independently functioning unit of living matter", "a cell"),
+      available(1, 0, "$200", "This clue has formatting and extra spacing", "kept exactly"),
+      available(2, 0, "$200", "This clue is tagged as a Daily Double but plays normally", "normal scoring"),
+      available(3, 0, "$200", "Playable malformed-category clue", "fine"),
+      available(4, 0, "$200", "Playable missing-category clue", "fine"),
+      unavailable(5, 0),
+      available(0, 1, "$400", "Science clue 400", "science 400"),
+      available(1, 1, "$400", "Word clue 400", "word 400"),
+      available(2, 1, "$400", "Daily clue 400", "daily 400"),
+      unavailable(3, 1),
+      unavailable(4, 1),
+      unavailable(5, 1),
+      available(0, 2, "$600", "Science clue 600", "science 600"),
+      available(1, 2, "$600", "Word clue 600", "word 600"),
+      available(2, 2, "$600", "Daily clue 600", "daily 600"),
+      available(3, 2, "$600", "Malformed category playable 600", "fine"),
+      available(4, 2, "$600", "Missing category playable 600", "fine"),
+      unavailable(5, 2),
+      available(0, 3, "$800", "Science clue 800", "science 800"),
+      available(1, 3, "$800", "Word clue 800", "word 800"),
+      available(2, 3, "$800", "Daily clue 800", "daily 800"),
+      available(3, 3, "$800", "Malformed category playable 800", "fine"),
+      available(4, 3, "$800", "Missing category playable 800", "fine"),
+      unavailable(5, 3),
+      available(0, 4, "$1000", "Science clue 1000", "science 1000"),
+      available(1, 4, "$1,234", "Word clue 1000", "word 1000"),
+      available(2, 4, "$1000", "Daily clue 1000", "daily 1000"),
+      available(3, 4, "$1000", "Malformed category playable 1000", "fine"),
+      available(4, 4, "$1000", "Missing category playable 1000", "fine"),
+      unavailable(5, 4)
+    ]
+  };
 }
 
-function homeHtml() {
-  return `
-    <!doctype html>
-    <html>
-      <body>
-        <table><tbody><tr><td>
-          <p><a href="showseason.php?season=1">Old season</a></p>
-          <p>Other links</p>
-          <p><a href="listseasons.php">All</a> <a href="showseason.php?season=42">Season 42</a></p>
-        </td></tr></tbody></table>
-      </body>
-    </html>
-  `;
+function available(categoryIndex, rowIndex, value, clueText, response) {
+  return {
+    id: "category-" + categoryIndex + "-row-" + rowIndex,
+    categoryId: "category-" + categoryIndex,
+    rowIndex,
+    categoryIndex,
+    value,
+    numericValue: Number(value.replace(/[^\d.-]/g, "")),
+    clueText,
+    response,
+    status: "available",
+    outcome: null
+  };
 }
 
-function seasonHtml() {
-  return `
-    <!doctype html>
-    <html>
-      <body>
-        <div id="content">
-          <table><tbody>
-            <tr><td><a href="showgame.php?game_id=9999">Show #9999 - Monday, June 1, 2026</a></td></tr>
-            <tr><td><a href="showgame.php?game_id=9998">Show #9998 - Friday, May 29, 2026</a></td></tr>
-          </tbody></table>
-        </div>
-      </body>
-    </html>
-  `;
-}
-
-function brokenSeasonHtml() {
-  return `
-    <!doctype html>
-    <html><body><div id="content"><p>No games here.</p></div></body></html>
-  `;
-}
-
-function partialEpisodeHtml() {
-  return `
-    <!doctype html>
-    <html>
-      <head><title>Show #9999 - Monday, June 1, 2026 - J! Archive</title></head>
-      <body>
-        <div id="game_title">Show #9999 - Monday, June 1, 2026</div>
-        <div id="contestants">Contestants are listed before clues are archived.</div>
-      </body>
-    </html>
-  `;
-}
-
-function episodeHtml(showNumber = "9999", date = "Monday, June 1, 2026") {
-  return `
-    <!doctype html>
-    <html>
-      <head><title>Show #${showNumber} - ${date} - J! Archive</title></head>
-      <body>
-        <div id="game_title">Show #${showNumber} - ${date}</div>
-        <table class="round"><tbody>
-          <tr>
-            <td class="category"><table><tr><td class="category_name"> Science &amp; <i>Nature</i> </td></tr></table></td>
-            <td class="category"><table><tr><td class="category_name">Word<br>Play</td></tr></table></td>
-            <td class="category"><table><tr><td class="category_name">Daily Double-ish</td></tr></table></td>
-            <td class="category"><table><tr><td class="category_name">Malformed</td></tr></table></td>
-            <td class="category"><table><tr><td class="category_name">Missing</td></tr></table></td>
-            <td class="category"><table><tr><td class="category_name">All Media</td></tr></table></td>
-          </tr>
-          ${roundRow(200, [
-    clue("$200", " A mass of cytoplasm bound by a membrane, <a href='https://example.test'>it's</a> the smallest independently functioning unit of living matter ", "a cell"),
-    clue("$200", "This clue has <em>formatting</em> and extra     spacing", "kept exactly"),
-    clue("$200", "This clue is tagged as a Daily Double but plays normally", "normal scoring"),
-    clue("$200", "Playable malformed-category clue", "fine"),
-    clue("$200", "Playable missing-category clue", "fine"),
-    mediaClue("$200", "Look at this image")
-  ])}
-          ${roundRow(400, [
-    clue("$400", "Science clue 400", "science 400"),
-    clue("$400", "Word clue 400", "word 400"),
-    clue("$400", "Daily clue 400", "daily 400"),
-    malformedClue("$400", "No response here"),
-    missingValueClue("No value here", "missing value"),
-    mediaClue("$400", "Listen to this")
-  ])}
-          ${roundRow(600, [
-    clue("$600", "Science clue 600", "science 600"),
-    clue("$600", "Word clue 600", "word 600"),
-    clue("$600", "Daily clue 600", "daily 600"),
-    clue("$600", "Malformed category playable 600", "fine"),
-            clue("$600", "Missing category playable 600", "fine"),
-    mediaClue("$600", "Watch this")
-  ])}
-          ${roundRow(800, [
-    clue("$800", "Science clue 800", "science 800"),
-    clue("$800", "Word clue 800", "word 800"),
-    clue("$800", "Daily clue 800", "daily 800"),
-    clue("$800", "Malformed category playable 800", "fine"),
-    clue("$800", "Missing category playable 800", "fine"),
-    mediaClue("$800", "Embedded object")
-  ])}
-          ${roundRow(1000, [
-    clue("$1000", "Science clue 1000", "science 1000"),
-            clue("$1,234", "Word clue 1000", "word 1000"),
-    clue("$1000", "Daily clue 1000", "daily 1000"),
-    clue("$1000", "Malformed category playable 1000", "fine"),
-    clue("$1000", "Missing category playable 1000", "fine"),
-    mediaClue("$1000", "Embedded video")
-  ])}
-        </tbody></table>
-        <table class="round"><tbody>
-          <tr><td class="category"><table><tr><td class="category_name">Double Round Category</td></tr></table></td></tr>
-          <tr><td class="clue">${clue("$400", "Double Jeopardy clue", "ignored")}</td></tr>
-        </tbody></table>
-      </body>
-    </html>
-  `;
-}
-
-function roundRow(value, cells) {
-  return `<tr>${cells.map((cell) => cell === "" ? "" : `<td class="clue">${cell}</td>`).join("")}</tr>`;
-}
-
-function clue(value, text, response) {
-  return `
-    <table><tbody><tr>
-      <td class="clue_value">${value}</td>
-      <td class="clue_text">${text}</td>
-      <td><em class="correct_response">${response}</em></td>
-    </tr></tbody></table>
-  `;
-}
-
-function malformedClue(value, text) {
-  return `
-    <table><tbody><tr>
-      <td class="clue_value">${value}</td>
-      <td class="clue_text">${text}</td>
-    </tr></tbody></table>
-  `;
-}
-
-function missingValueClue(text, response) {
-  return `
-    <table><tbody><tr>
-      <td class="clue_text">${text}</td>
-      <td><em class="correct_response">${response}</em></td>
-    </tr></tbody></table>
-  `;
-}
-
-function mediaClue(value, text) {
-  return `
-    <table><tbody><tr>
-      <td class="clue_value">${value}</td>
-      <td class="clue_text">${text}<img src="external.jpg" alt=""></td>
-      <td><em class="correct_response">media response</em></td>
-    </tr></tbody></table>
-  `;
+function unavailable(categoryIndex, rowIndex) {
+  return {
+    id: "category-" + categoryIndex + "-row-" + rowIndex,
+    categoryId: "category-" + categoryIndex,
+    rowIndex,
+    categoryIndex,
+    value: "N/A",
+    numericValue: 0,
+    clueText: "",
+    response: "",
+    status: "unavailable",
+    outcome: null
+  };
 }

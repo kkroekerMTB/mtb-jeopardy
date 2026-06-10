@@ -55,6 +55,7 @@ jobs:
         run: |
           mkdir _site
           cp index.html _site/index.html
+          cp -r data _site/data
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
