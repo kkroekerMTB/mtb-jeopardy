@@ -83,6 +83,137 @@
       font-size: 14px;
     }
 
+    .team-controls {
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .team-name {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .team-name label {
+      font-size: 14px;
+      color: #c9cfeb;
+    }
+
+    .team-name input {
+      min-width: 180px;
+      max-width: 320px;
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #333b66;
+      border-radius: 8px;
+      background: var(--panel-soft);
+      color: #fff;
+    }
+
+    .team-name input::placeholder {
+      color: #8f99c4;
+    }
+
+    .toolbar-button,
+    .filter-button {
+      margin-top: 26px;
+      padding: 10px 16px;
+      border: 1px solid #333b66;
+      border-radius: 8px;
+      background: var(--panel-soft);
+      color: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .toolbar-button:hover,
+    .filter-button:hover {
+      filter: brightness(1.08);
+    }
+
+    .filter-button.active {
+      background: var(--jeopardy-gold);
+      color: #03145f;
+      border-color: #f7d760;
+    }
+
+    .leaderboard-card {
+      position: relative;
+      width: min(960px, 92vw);
+      min-height: min(580px, 80vh);
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      background: var(--board-blue);
+      border: 4px solid #05091d;
+      color: #fff;
+      overflow: hidden;
+    }
+
+    .leaderboard-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .leaderboard-summary {
+      font-size: 14px;
+      color: #c9cfeb;
+    }
+
+    .leaderboard-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    .leaderboard-table th,
+    .leaderboard-table td {
+      padding: 14px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      text-align: left;
+    }
+
+    .leaderboard-table th {
+      color: #c9cfeb;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 12px;
+    }
+
+    .leaderboard-table tbody tr:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .leaderboard-empty {
+      padding: 24px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      color: #c9cfeb;
+    }
+
+    .leaderboard-overlay .close-button {
+      right: 20px;
+      top: 20px;
+    }
+
+    .leaderboard-overlay h2 {
+      margin: 0;
+      font-size: 34px;
+      letter-spacing: 0.02em;
+    }
+
+    .leaderboard-overlay .leaderboard-card {
+      max-height: calc(100vh - 80px);
+      overflow: auto;
+    }
+
     .source-link {
       color: #f7d760;
       font-size: 14px;
@@ -419,6 +550,13 @@
           <a id="sourceLink" class="source-link" href="#" target="_blank" rel="noopener" hidden>Source episode</a>
         </div>
         <div id="episodeMeta" class="episode-meta"></div>
+        <div class="team-controls">
+          <div class="team-name">
+            <label for="teamName">Team name</label>
+            <input id="teamName" name="teamName" type="text" placeholder="Enter team name" />
+          </div>
+          <button id="openLeaderboard" class="toolbar-button" type="button">Leaderboard</button>
+        </div>
       </div>
       <div class="stats" aria-label="Team tally">
         <div class="stat">
@@ -450,6 +588,29 @@
     <section id="board" class="board" aria-label="Jeopardy board" hidden></section>
   </main>
 
+  <section id="leaderboardOverlay" class="overlay leaderboard-overlay" aria-modal="true" role="dialog"
+    aria-label="Leaderboard" hidden>
+    <article class="leaderboard-card">
+      <button id="closeLeaderboard" class="close-button" type="button" aria-label="Close leaderboard">&times;</button>
+      <h2>Leaderboard</h2>
+      <div id="leaderboardFilters" class="leaderboard-controls" role="tablist" aria-label="Score filters"></div>
+      <div id="leaderboardSummary" class="leaderboard-summary"></div>
+      <table class="leaderboard-table">
+        <thead>
+          <tr>
+            <th scope="col">Team</th>
+            <th scope="col">Score</th>
+            <th scope="col">Correct</th>
+            <th scope="col">Missed</th>
+            <th scope="col">Games</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboardBody"></tbody>
+      </table>
+      <div id="leaderboardEmpty" class="leaderboard-empty" hidden>No scores are available for this filter.</div>
+    </article>
+  </section>
+
   <section id="overlay" class="overlay" aria-modal="true" role="dialog" hidden>
     <article id="clueCard" class="clue-card">
       <button id="closeClue" class="close-button" type="button" aria-label="Close clue">&times;</button>
@@ -464,14 +625,23 @@
   </section>
 
   <script>
+    const TEAM_NAME_KEY = "standup-jeopardy-team-name";
     const GAME_DATA_URL = "data/latest-game.json";
+    const LEADERBOARD_API_URL = "/api/scores";
+
+    const LEADERBOARD_FILTERS = [
+      { id: "today", label: "Today" },
+      { id: "this-week", label: "This week" },
+      { id: "all-time", label: "All time" }
+    ];
 
     const state = {
       board: null,
       selectedClueId: null,
       revealed: false,
       selectedTileRect: null,
-      isTransitioning: false
+      isTransitioning: false,
+      leaderboardFilter: "today"
     };
 
     const els = {
@@ -484,6 +654,14 @@
       missedCount: document.getElementById("missedCount"),
       netValue: document.getElementById("netValue"),
       unavailableCount: document.getElementById("unavailableCount"),
+      teamNameInput: document.getElementById("teamName"),
+      openLeaderboard: document.getElementById("openLeaderboard"),
+      leaderboardOverlay: document.getElementById("leaderboardOverlay"),
+      leaderboardFilters: document.getElementById("leaderboardFilters"),
+      leaderboardSummary: document.getElementById("leaderboardSummary"),
+      leaderboardBody: document.getElementById("leaderboardBody"),
+      leaderboardEmpty: document.getElementById("leaderboardEmpty"),
+      closeLeaderboard: document.getElementById("closeLeaderboard"),
       overlay: document.getElementById("overlay"),
       clueCard: document.getElementById("clueCard"),
       closeClue: document.getElementById("closeClue"),
@@ -497,6 +675,8 @@
     init();
 
     async function init() {
+      loadTeamName();
+      setupLeaderboard();
       try {
         setLoadingText("Loading board...");
         const board = await loadGameData();
@@ -745,6 +925,137 @@
       els.board.hidden = true;
       els.status.innerHTML = "<div><p class=\"status-title\">Couldn't load latest game</p></div>";
     }
+
+    function setupLeaderboard() {
+      if (!els.leaderboardFilters || !els.openLeaderboard || !els.closeLeaderboard) {
+        return;
+      }
+
+      LEADERBOARD_FILTERS.forEach((filter) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "filter-button";
+        button.dataset.filter = filter.id;
+        button.textContent = filter.label;
+        button.addEventListener("click", () => selectLeaderboardFilter(filter.id));
+        els.leaderboardFilters.append(button);
+      });
+
+      els.openLeaderboard.addEventListener("click", () => openLeaderboard().catch(console.error));
+      els.closeLeaderboard.addEventListener("click", closeLeaderboardPanel);
+      selectLeaderboardFilter(state.leaderboardFilter).catch(console.error);
+    }
+
+    async function openLeaderboard() {
+      await renderLeaderboard();
+      els.leaderboardOverlay.hidden = false;
+      els.leaderboardOverlay.classList.add("active");
+      document.body.classList.add("overlay-open");
+    }
+
+    function closeLeaderboardPanel() {
+      els.leaderboardOverlay.hidden = true;
+      els.leaderboardOverlay.classList.remove("active");
+      document.body.classList.remove("overlay-open");
+    }
+
+    async function selectLeaderboardFilter(filterId) {
+      state.leaderboardFilter = filterId;
+      const buttons = els.leaderboardFilters.querySelectorAll(".filter-button");
+      buttons.forEach((button) => {
+        button.classList.toggle("active", button.dataset.filter === filterId);
+      });
+      await renderLeaderboard();
+    }
+
+    async function fetchLeaderboardScores(filterId) {
+      const url = new URL(LEADERBOARD_API_URL, window.location.origin);
+      url.searchParams.set("filter", filterId);
+
+      const response = await fetch(url.toString(), { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error("Leaderboard fetch failed: " + response.status);
+      }
+
+      const payload = await response.json();
+      return payload.scores || [];
+    }
+
+    async function renderLeaderboard() {
+      els.leaderboardSummary.textContent = "Loading leaderboard...";
+      els.leaderboardBody.replaceChildren();
+      els.leaderboardEmpty.hidden = true;
+
+      let scores;
+      try {
+        scores = await fetchLeaderboardScores(state.leaderboardFilter);
+      } catch (error) {
+        console.error(error);
+        els.leaderboardSummary.textContent = "Unable to load leaderboard.";
+        els.leaderboardEmpty.hidden = false;
+        return;
+      }
+
+      els.leaderboardSummary.textContent = `Showing ${scores.length} teams for ${LEADERBOARD_FILTERS.find((filter) => filter.id === state.leaderboardFilter).label}.`;
+      els.leaderboardBody.replaceChildren();
+      els.leaderboardEmpty.hidden = scores.length > 0;
+
+      if (!scores.length) {
+        return;
+      }
+
+      scores.forEach((row) => {
+        const tr = document.createElement("tr");
+
+        const teamCell = document.createElement("td");
+        teamCell.textContent = row.teamName;
+        tr.append(teamCell);
+
+        const scoreCell = document.createElement("td");
+        scoreCell.textContent = formatCurrency(row.score);
+        tr.append(scoreCell);
+
+        const correctCell = document.createElement("td");
+        correctCell.textContent = String(row.correct);
+        tr.append(correctCell);
+
+        const missedCell = document.createElement("td");
+        missedCell.textContent = String(row.missed);
+        tr.append(missedCell);
+
+        const gamesCell = document.createElement("td");
+        gamesCell.textContent = String(row.games);
+        tr.append(gamesCell);
+
+        els.leaderboardBody.append(tr);
+      });
+    }
+
+    function loadTeamName() {
+      if (!els.teamNameInput) {
+        return;
+      }
+
+      const savedTeamName = localStorage.getItem(TEAM_NAME_KEY);
+      if (savedTeamName !== null) {
+        els.teamNameInput.value = savedTeamName;
+      }
+    }
+
+    function saveTeamName() {
+      if (!els.teamNameInput) {
+        return;
+      }
+
+      const teamName = els.teamNameInput.value;
+      if (teamName === "") {
+        localStorage.removeItem(TEAM_NAME_KEY);
+      } else {
+        localStorage.setItem(TEAM_NAME_KEY, teamName);
+      }
+    }
+
+    els.teamNameInput.addEventListener("input", saveTeamName);
 
     els.clueCard.addEventListener("click", (event) => {
       if (event.target.closest("button")) {
