@@ -169,6 +169,38 @@ test.describe("Standup Jeopardy", () => {
     await expect(page.getByRole("button", { name: "$200" }).first()).toBeEnabled();
   });
 
+  test("saves and restores the team name from localStorage", async ({ page }) => {
+    await page.goto(appUrl);
+
+    const teamNameInput = page.getByRole("textbox", { name: /team name/i });
+    await expect(teamNameInput).toBeVisible();
+
+    await teamNameInput.fill("The A Team");
+    await expect(teamNameInput).toHaveValue("The A Team");
+
+    await page.reload();
+    await expect(page.getByRole("textbox", { name: /team name/i })).toHaveValue("The A Team");
+  });
+
+  test("opens the leaderboard and shows mocked scores for each filter", async ({ page }) => {
+    await routeLeaderboardScores(page);
+
+    await page.goto(appUrl);
+
+    await page.getByRole("button", { name: "Leaderboard" }).click();
+    await expect(page.getByRole("heading", { name: "Leaderboard" })).toBeVisible();
+    await expect(page.locator("#leaderboardBody tr")).toHaveCount(3);
+    await expect(page.getByText("The A Team")).toBeVisible();
+
+    await page.getByRole("button", { name: "This week" }).click();
+    await expect(page.getByText("Team Two")).toBeVisible();
+    await expect(page.getByText("Team Trio")).toBeVisible();
+
+    await page.getByRole("button", { name: "All time" }).click();
+    await expect(page.getByText("Team Trio")).toBeVisible();
+    await expect(page.locator("#leaderboardSummary")).toHaveText(/Showing 3 teams for All time/);
+  });
+
   test("surfaces a visible load failure and logs details when local data cannot be loaded", async ({ page }) => {
     const errors = [];
     page.on("console", (message) => {
@@ -227,6 +259,33 @@ async function routeGameData(page, options = {}) {
       body: options.body || JSON.stringify(testBoard())
     });
   });
+}
+
+async function routeLeaderboardScores(page) {
+  await page.route("**/api/scores?filter=*", async (route) => {
+    const url = new URL(route.request().url());
+    const filter = url.searchParams.get("filter");
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ scores: testScores(filter) })
+    });
+  });
+}
+
+function testScores(filter) {
+  const scores = [
+    { teamName: "The A Team", score: 1200, correct: 3, missed: 1, games: 1 },
+    { teamName: "Team Two", score: 800, correct: 2, missed: 0, games: 1 },
+    { teamName: "Team Trio", score: 400, correct: 1, missed: 1, games: 1 }
+  ];
+
+  if (filter === "this-week") {
+    return scores.slice().reverse();
+  }
+
+  return scores;
 }
 
 function testBoard() {
