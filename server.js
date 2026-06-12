@@ -4,11 +4,31 @@ const { TableClient } = require('@azure/data-tables');
 
 const app = express();
 const port = process.env.PORT || 4174;
+const allowedOrigins = new Set([
+    'https://kkroekermtb.github.io',
+    'http://127.0.0.1:4173',
+    'http://localhost:4173'
+]);
 
 const connectionString = process.env.AZURE_TABLE_CONNECTION_STRING ||
     'DefaultEndpointsProtocol=https;AccountName=REDACTED;AccountKey=REDACTED;EndpointSuffix=core.windows.net';
 const tableName = 'scores';
 const client = TableClient.fromConnectionString(connectionString, tableName);
+
+app.use('/api', (req, res, next) => {
+    const origin = req.get('origin');
+    if (origin && allowedOrigins.has(origin)) {
+        res.set('Access-Control-Allow-Origin', origin);
+        res.set('Vary', 'Origin');
+    }
+    res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(204);
+    }
+
+    return next();
+});
 
 function parseScoreEntity(entity) {
     return {
