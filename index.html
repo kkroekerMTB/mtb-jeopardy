@@ -214,6 +214,67 @@
       overflow: auto;
     }
 
+    .confirmation-card {
+      width: min(520px, 92vw);
+      padding: 28px;
+      background: var(--panel);
+      border: 2px solid #333b66;
+      color: #fff;
+    }
+
+    .confirmation-card h2 {
+      margin: 0 0 12px;
+      font-size: 28px;
+    }
+
+    .confirmation-card p {
+      margin: 0 0 14px;
+      color: #c9cfeb;
+      line-height: 1.4;
+    }
+
+    .confirmation-summary {
+      margin: 16px 0;
+      padding: 14px;
+      background: var(--panel-soft);
+      border: 1px solid #333b66;
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .confirmation-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .confirmation-status {
+      min-height: 20px;
+      color: #f7d760;
+      font-size: 14px;
+    }
+
+    .confirmation-button {
+      padding: 10px 16px;
+      border: 1px solid #333b66;
+      background: var(--panel-soft);
+      color: #fff;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .confirmation-button.primary {
+      background: var(--jeopardy-gold);
+      color: #03145f;
+      border-color: #f7d760;
+    }
+
+    .confirmation-button:disabled {
+      opacity: 0.58;
+      cursor: default;
+    }
+
     .source-link {
       color: #f7d760;
       font-size: 14px;
@@ -222,6 +283,25 @@
 
     .source-link:hover {
       text-decoration: underline;
+    }
+
+    .score-panel {
+      display: flex;
+      align-items: end;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .submit-score-button {
+      margin-top: 0;
+      min-width: 124px;
+    }
+
+    .submit-score-button:disabled {
+      opacity: 0.58;
+      cursor: default;
+      filter: none;
     }
 
     .stats {
@@ -524,6 +604,10 @@
         justify-content: flex-start;
       }
 
+      .score-panel {
+        justify-content: flex-start;
+      }
+
       .board {
         grid-auto-rows: minmax(82px, 1fr);
         min-height: 560px;
@@ -558,22 +642,25 @@
           <button id="openLeaderboard" class="toolbar-button" type="button">Leaderboard</button>
         </div>
       </div>
-      <div class="stats" aria-label="Team tally">
-        <div class="stat">
-          <span class="stat-label">Correct</span>
-          <span id="correctCount" class="stat-value">0</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Missed</span>
-          <span id="missedCount" class="stat-value">0</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Net</span>
-          <span id="netValue" class="stat-value">$0</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Unavailable</span>
-          <span id="unavailableCount" class="stat-value">0</span>
+      <div class="score-panel">
+        <button id="submitScore" class="toolbar-button submit-score-button" type="button">Submit score</button>
+        <div class="stats" aria-label="Team tally">
+          <div class="stat">
+            <span class="stat-label">Correct</span>
+            <span id="correctCount" class="stat-value">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Missed</span>
+            <span id="missedCount" class="stat-value">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Net</span>
+            <span id="netValue" class="stat-value">$0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Unavailable</span>
+            <span id="unavailableCount" class="stat-value">0</span>
+          </div>
         </div>
       </div>
     </header>
@@ -611,6 +698,19 @@
     </article>
   </section>
 
+  <section id="submitScoreOverlay" class="overlay" aria-modal="true" role="dialog" aria-label="Submit score" hidden>
+    <article class="confirmation-card">
+      <h2>Submit score?</h2>
+      <p>This records the current team score on the leaderboard.</p>
+      <div id="submitScoreSummary" class="confirmation-summary"></div>
+      <div id="submitScoreStatus" class="confirmation-status" aria-live="polite"></div>
+      <div class="confirmation-actions">
+        <button id="cancelSubmitScore" class="confirmation-button" type="button">Cancel</button>
+        <button id="confirmSubmitScore" class="confirmation-button primary" type="button">Submit</button>
+      </div>
+    </article>
+  </section>
+
   <section id="overlay" class="overlay" aria-modal="true" role="dialog" hidden>
     <article id="clueCard" class="clue-card">
       <button id="closeClue" class="close-button" type="button" aria-label="Close clue">&times;</button>
@@ -628,6 +728,7 @@
     const TEAM_NAME_KEY = "standup-jeopardy-team-name";
     const GAME_DATA_URL = "data/latest-game.json";
     const LEADERBOARD_API_URL = "https://app-mtb-jeopardy-ftdbbcefh2dqd9d0.canadaeast-01.azurewebsites.net/api/scores";
+    const SUBMIT_SCORE_API_URL = LEADERBOARD_API_URL;
 
     const LEADERBOARD_FILTERS = [
       { id: "today", label: "Today" },
@@ -641,7 +742,9 @@
       revealed: false,
       selectedTileRect: null,
       isTransitioning: false,
-      leaderboardFilter: "today"
+      leaderboardFilter: "today",
+      scoreSubmitted: false,
+      scoreSubmitting: false
     };
 
     const els = {
@@ -654,6 +757,12 @@
       missedCount: document.getElementById("missedCount"),
       netValue: document.getElementById("netValue"),
       unavailableCount: document.getElementById("unavailableCount"),
+      submitScore: document.getElementById("submitScore"),
+      submitScoreOverlay: document.getElementById("submitScoreOverlay"),
+      submitScoreSummary: document.getElementById("submitScoreSummary"),
+      submitScoreStatus: document.getElementById("submitScoreStatus"),
+      cancelSubmitScore: document.getElementById("cancelSubmitScore"),
+      confirmSubmitScore: document.getElementById("confirmSubmitScore"),
       teamNameInput: document.getElementById("teamName"),
       openLeaderboard: document.getElementById("openLeaderboard"),
       leaderboardOverlay: document.getElementById("leaderboardOverlay"),
@@ -766,7 +875,25 @@
     }
 
     function renderHeader() {
+      const summary = getScoreSummary();
+
+      els.correctCount.textContent = String(summary.correct);
+      els.missedCount.textContent = String(summary.missed);
+      els.netValue.textContent = formatCurrency(summary.net);
+      els.unavailableCount.textContent = String(summary.unavailable);
+      els.episodeMeta.textContent = state.board.episodeTitle;
+
+      els.sourceLink.href = state.board.episodeUrl;
+      els.sourceLink.hidden = false;
+      updateSubmitScoreButton();
+    }
+
+    function getScoreSummary() {
       const board = state.board;
+      if (!board) {
+        return { correct: 0, missed: 0, net: 0, unavailable: 0 };
+      }
+
       const availableClues = board.clues.filter((clue) => clue.status === "available");
       const correct = availableClues.filter((clue) => clue.outcome === "correct");
       const missed = availableClues.filter((clue) => clue.outcome === "missed");
@@ -774,14 +901,12 @@
       const net = correct.reduce((sum, clue) => sum + clue.numericValue, 0) -
         missed.reduce((sum, clue) => sum + clue.numericValue, 0);
 
-      els.correctCount.textContent = String(correct.length);
-      els.missedCount.textContent = String(missed.length);
-      els.netValue.textContent = formatCurrency(net);
-      els.unavailableCount.textContent = String(unavailable);
-      els.episodeMeta.textContent = board.episodeTitle;
-
-      els.sourceLink.href = board.episodeUrl;
-      els.sourceLink.hidden = false;
+      return {
+        correct: correct.length,
+        missed: missed.length,
+        net,
+        unavailable
+      };
     }
 
     function openClue(clueId, sourceTile) {
@@ -926,6 +1051,116 @@
       els.status.innerHTML = "<div><p class=\"status-title\">Couldn't load latest game</p></div>";
     }
 
+    function setupScoreSubmission() {
+      if (!els.submitScore || !els.submitScoreOverlay || !els.cancelSubmitScore || !els.confirmSubmitScore) {
+        return;
+      }
+
+      els.submitScore.addEventListener("click", openSubmitScoreModal);
+      els.cancelSubmitScore.addEventListener("click", closeSubmitScoreModal);
+      els.confirmSubmitScore.addEventListener("click", () => submitScore().catch(console.error));
+      updateSubmitScoreButton();
+    }
+
+    function updateSubmitScoreButton() {
+      if (!els.submitScore) {
+        return;
+      }
+
+      els.submitScore.disabled = state.scoreSubmitted || state.scoreSubmitting;
+      els.submitScore.textContent = state.scoreSubmitted ? "Submitted" : state.scoreSubmitting ? "Submitting..." : "Submit score";
+    }
+
+    function openSubmitScoreModal() {
+      if (state.scoreSubmitted || state.scoreSubmitting) {
+        return;
+      }
+
+      const teamName = getTeamName();
+      const summary = getScoreSummary();
+      els.submitScoreSummary.textContent = `${teamName || "Unnamed team"}: ${formatCurrency(summary.net)} (${summary.correct} correct, ${summary.missed} missed)`;
+      els.submitScoreStatus.textContent = teamName ? "" : "Enter a team name before submitting.";
+      els.confirmSubmitScore.disabled = !teamName;
+      els.submitScoreOverlay.hidden = false;
+      els.submitScoreOverlay.classList.add("active");
+      document.body.classList.add("overlay-open");
+    }
+
+    function closeSubmitScoreModal() {
+      if (state.scoreSubmitting) {
+        return;
+      }
+
+      els.submitScoreOverlay.hidden = true;
+      els.submitScoreOverlay.classList.remove("active");
+      document.body.classList.remove("overlay-open");
+    }
+
+    function getTeamName() {
+      return els.teamNameInput ? els.teamNameInput.value.trim() : "";
+    }
+
+    async function submitScore() {
+      if (state.scoreSubmitted || state.scoreSubmitting) {
+        return;
+      }
+
+      const teamName = getTeamName();
+      if (!teamName) {
+        els.submitScoreStatus.textContent = "Enter a team name before submitting.";
+        els.confirmSubmitScore.disabled = true;
+        return;
+      }
+
+      const summary = getScoreSummary();
+      state.scoreSubmitting = true;
+      els.confirmSubmitScore.disabled = true;
+      els.cancelSubmitScore.disabled = true;
+      els.submitScoreStatus.textContent = "Submitting score...";
+      updateSubmitScoreButton();
+
+      try {
+        await postScore({
+          teamName,
+          net: summary.net,
+          correct: summary.correct,
+          missed: summary.missed,
+          sourceEpisode: state.board ? state.board.episodeTitle : "",
+          sourceUrl: state.board ? state.board.episodeUrl : ""
+        });
+      } catch (error) {
+        console.error(error);
+        state.scoreSubmitting = false;
+        els.confirmSubmitScore.disabled = false;
+        els.cancelSubmitScore.disabled = false;
+        els.submitScoreStatus.textContent = "Unable to submit score. Try again.";
+        updateSubmitScoreButton();
+        return;
+      }
+
+      state.scoreSubmitting = false;
+      state.scoreSubmitted = true;
+      els.cancelSubmitScore.disabled = false;
+      updateSubmitScoreButton();
+      closeSubmitScoreModal();
+    }
+
+    async function postScore(score) {
+      const response = await fetch(SUBMIT_SCORE_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(score)
+      });
+
+      if (!response.ok) {
+        throw new Error("Score submission failed: " + response.status);
+      }
+
+      return response.json();
+    }
+
     function setupLeaderboard() {
       if (!els.leaderboardFilters || !els.openLeaderboard || !els.closeLeaderboard) {
         return;
@@ -1056,6 +1291,7 @@
     }
 
     els.teamNameInput.addEventListener("input", saveTeamName);
+    setupScoreSubmission();
 
     els.clueCard.addEventListener("click", (event) => {
       if (event.target.closest("button")) {

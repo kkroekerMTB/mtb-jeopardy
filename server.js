@@ -10,9 +10,11 @@ const connectionString = process.env.AZURE_TABLE_CONNECTION_STRING ||
 const tableName = 'scores';
 const client = TableClient.fromConnectionString(connectionString, tableName);
 
+app.use(express.json({ limit: '16kb' }));
+
 app.use('/api', (req, res, next) => {
     res.set('Access-Control-Allow-Origin', '*');
-    res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') {
@@ -33,6 +35,52 @@ function parseScoreEntity(entity) {
         sourceEpisode: entity.source_episode || null,
         rowKey: entity.rowKey
     };
+}
+
+function createScoreRowKey() {
+    return `${new Date().toISOString()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function isValidTableKey(value) {
+    return typeof value === 'string' &&
+        value.trim().length > 0 &&
+        value.length <= 1024 &&
+        !/[\/\\#?\u0000-\u001f\u007f-\u009f]/.test(value);
+}
+
+function parseScoreSubmission(body) {
+    const teamName = typeof body.teamName === 'string' ? body.teamName.trim() : '';
+    const sourceEpisode = typeof body.sourceEpisode === 'string' ? body.sourceEpisode.trim() : '';
+    const sourceUrl = typeof body.sourceUrl === 'string' ? body.sourceUrl.trim() : '';
+    const net = Number(body.net);
+    const correct = Number(body.correct);
+    const missed = Number(body.missed);
+
+    if (!isValidTableKey(teamName)) {
+        return { error: 'Team name is required and cannot contain /, \\, #, or ?.' };
+    }
+
+    if (!Number.isFinite(net) || !Number.isInteger(correct) || !Number.isInteger(missed) || correct < 0 || missed < 0) {
+        return { error: 'Score submission is invalid.' };
+    }
+
+    const entity = {
+        partitionKey: teamName,
+        rowKey: createScoreRowKey(),
+        net,
+        correct,
+        missed
+    };
+
+    if (sourceEpisode) {
+        entity.source_episode = sourceEpisode;
+    }
+
+    if (sourceUrl) {
+        entity.source_url = sourceUrl;
+    }
+
+    return { entity };
 }
 
 function aggregateScores(rows) {
@@ -91,6 +139,28 @@ app.get('/api/scores', async (req, res) => {
 
     const aggregated = aggregateScores(rows);
     res.json({ scores: aggregated });
+});
+
+app.post('/api/scores', async (req, res) => {
+    const submission = parseScoreSubmission(req.body || {});
+
+    if (submission.error) {
+        return res.status(400).json({ error: submission.error });
+    }
+
+    try {
+        await client.createEntity(submission.entity);
+    } catch (error) {
+        console.error('Error submitting leaderboard score:', error);
+        return res.status(500).json({ error: 'Failed to submit leaderboard score' });
+    }
+
+    res.status(201).json({
+        score: parseScoreEntity({
+            ...submission.entity,
+            timestamp: new Date().toISOString()
+        })
+    });
 });
 
 app.use('/', express.static(path.resolve(__dirname)));

@@ -201,6 +201,55 @@ test.describe("Standup Jeopardy", () => {
     await expect(page.locator("#leaderboardSummary")).toHaveText(/Showing 3 teams for All time/);
   });
 
+  test("opens the submit score confirmation and cancels without submitting", async ({ page }) => {
+    let submissions = 0;
+    await routeScoreSubmission(page, () => {
+      submissions += 1;
+    });
+
+    await page.goto(appUrl);
+    await page.getByRole("textbox", { name: /team name/i }).fill("The A Team");
+
+    await page.getByRole("button", { name: "Submit score" }).click();
+    await expect(page.getByRole("dialog", { name: "Submit score" })).toBeVisible();
+    await expect(page.locator("#submitScoreSummary")).toHaveText("The A Team: $0 (0 correct, 0 missed)");
+
+    await page.getByRole("button", { name: "Cancel" }).click();
+
+    await expect(page.getByRole("dialog", { name: "Submit score" })).toBeHidden();
+    await expect(page.getByRole("button", { name: "Submit score" })).toBeEnabled();
+    expect(submissions).toBe(0);
+  });
+
+  test("submits the current score once and disables resubmission", async ({ page }) => {
+    const submissions = [];
+    await routeScoreSubmission(page, (payload) => {
+      submissions.push(payload);
+    });
+
+    await page.goto(appUrl);
+    await page.getByRole("textbox", { name: /team name/i }).fill("The A Team");
+    await page.getByRole("button", { name: "$200" }).first().click();
+    await page.locator("#clueCard").click();
+    await page.getByRole("button", { name: "Correct" }).click();
+    await expect(page.locator("#netValue")).toHaveText("$200");
+
+    await page.getByRole("button", { name: "Submit score" }).click();
+    await expect(page.locator("#submitScoreSummary")).toHaveText("The A Team: $200 (1 correct, 0 missed)");
+    await page.getByRole("button", { name: "Submit", exact: true }).click();
+
+    await expect(page.getByRole("button", { name: "Submitted" })).toBeDisabled();
+    expect(submissions).toHaveLength(1);
+    expect(submissions[0]).toMatchObject({
+      teamName: "The A Team",
+      net: 200,
+      correct: 1,
+      missed: 0,
+      sourceEpisode: "Show #9999 - Monday, June 1, 2026",
+      sourceUrl: latestGameUrl
+    });
+  });
+
   test("surfaces a visible load failure and logs details when local data cannot be loaded", async ({ page }) => {
     const errors = [];
     page.on("console", (message) => {
@@ -270,6 +319,19 @@ async function routeLeaderboardScores(page) {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({ scores: testScores(filter) })
+    });
+  });
+}
+
+async function routeScoreSubmission(page, onSubmit) {
+  await page.route("**/api/scores", async (route) => {
+    const payload = route.request().postDataJSON();
+    onSubmit(payload);
+
+    await route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({ score: payload })
     });
   });
 }
