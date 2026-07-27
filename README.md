@@ -21,7 +21,7 @@ Every day at standup, we close our time by playing some Jeopardy. We open up the
 
 ## Data generation
 
-The app reads the latest board from `data/latest-game.json`. Runtime browser code does not scrape J-Archive or call a CORS proxy.
+The app reads the latest board from `data/latest-game.json`. Runtime browser code does not scrape J-Archive or call a CORS proxy. The generated data identifies exactly one first-round Daily Double using the source episode's marker. If that marker is missing, ambiguous, or belongs to an unrenderable clue, generation selects a deterministic playable fallback for that episode.
 
 To refresh the data source, run:
 
@@ -42,13 +42,22 @@ That script opens J-Archive with Playwright from Node, follows the latest-season
 * The app should not enforce answering in Jeopardy form.
 * The app should track whether each revealed clue was answered correctly.
 * This is team Jeopardy: the whole team's "brain trust" answers together. Do not track scores, turns, or correctness by player.
-* Daily Doubles should not receive special behavior. Render and score them like normal clues.
+* The first round should contain exactly one Daily Double at the same board position as the source episode whenever that clue can be rendered.
+* Do not visually distinguish the Daily Double tile before it is selected. Because the source does not assign it an ordinary clue value, show the value inferred from the other clues in its row as display text only.
+* If the source Daily Double is unavailable, missing, or ambiguous, choose a playable fallback deterministically from the episode URL and eligible clue IDs. Repeated generation of the same episode must produce the same fallback.
+* Opening the Daily Double should expand it from the selected tile into a red full-screen card while it rotates forward five times over approximately 1.2 seconds. Under reduced-motion preferences, use a short fade/scale entrance without rotation.
+* Keep the Daily Double clue hidden until the team locks a whole-dollar wager. Show the current score and wager range while wagering.
+* A Daily Double wager must be between $5 and the greater of the current score or $1,000. Default to the current score when it is at least $5; otherwise default to $5.
+* Hide the close control for a Daily Double and require the team to mark it Correct or Missed. Once locked, show the wager in place of the clue value. Identify an all-in positive-score wager as a True Daily Double.
+* Score Daily Doubles using the wager rather than the display-only row value. Add it for Correct and subtract it for Missed, while still incrementing the corresponding answer count.
 * After revealing a clue's response, the app should show two large controls: Correct and Missed. Selecting either option should return to the board and mark the tile with the selected outcome.
-* Before a clue's response is revealed, provide a small close control that returns to the board without marking the tile used.
-* Used tiles should remain visible but muted, with a green/red outcome indicator for correct or missed clues.
+* Before a normal clue's response is revealed, provide a small close control that returns to the board without marking the tile used.
+* Used normal tiles should remain visible but muted, with a green/red outcome indicator for correct or missed clues. A used Daily Double tile should remain red and display `DD` with its signed score contribution.
 * Used tiles should not be reopenable or editable after they are marked Correct or Missed.
 * Undoing or changing a Correct/Missed choice is out of scope for the MVP.
-* Show a simple team tally in the header with correct count, missed count, and net Jeopardy dollar value.
+* Show a simple team tally in the header with correct count, missed count, and net Jeopardy dollar value. A Daily Double contributes its signed wager to the net value.
+* Score submissions should include a signed numeric `daily_double_amount` property. Use zero when the Daily Double was not answered.
+* The leaderboard should roll up `daily_double_amount` across the selected time window, treat legacy rows without the property as zero, and show the signed result in a `DD Amount` column after Score. Continue ranking by total Score.
 * Do not include a New Game or Reload Latest control. Browser refresh is sufficient.
 * Show the scraped episode title/date in the header when available, but do not block board rendering if that metadata is missing.
 * Show a small source link to the loaded J-Archive episode in the header or footer. This should be a normal user-initiated link, not an external asset dependency.

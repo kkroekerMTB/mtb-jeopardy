@@ -3,6 +3,7 @@
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { chromium } = require("playwright");
+const { parseEpisodeInPage, finalizeBoard } = require("./game-data");
 
 const J_ARCHIVE_HOME_URL = process.env.J_ARCHIVE_HOME_URL || "https://www.j-archive.com/";
 const OUTPUT_PATH = process.env.JEOPARDY_DATA_PATH || path.join("data", "latest-game.json");
@@ -61,124 +62,11 @@ async function loadFirstAvailableBoard(page, episodeUrls) {
       continue;
     }
 
-    return page.evaluate(parseEpisodeInPage, episodeUrl);
+    const board = await page.evaluate(parseEpisodeInPage, episodeUrl);
+    return finalizeBoard(board);
   }
 
   throw new Error("No archived episode with a first round table was found.");
-}
-
-function parseEpisodeInPage(episodeUrl) {
-  const round = document.querySelector("table.round");
-
-  if (!round) {
-    throw new Error("First round table not found.");
-  }
-
-  const rows = Array.from(round.querySelectorAll(":scope > tbody > tr, :scope > tr"));
-  const categoryCells = rows[0] ? Array.from(rows[0].querySelectorAll("td.category")) : [];
-  const categories = categoryCells.map((cell, index) => ({
-    id: "category-" + index,
-    title: cleanText(cell.querySelector(".category_name") || cell) || "Category"
-  }));
-
-  if (!categories.length) {
-    throw new Error("No categories found in first round.");
-  }
-
-  const clues = [];
-
-  rows.slice(1).forEach((row, rowIndex) => {
-    const clueCells = Array.from(row.querySelectorAll(":scope > td.clue"));
-    categories.forEach((category, categoryIndex) => {
-      const cell = clueCells[categoryIndex];
-      clues.push(parseClueCell(cell, category.id, rowIndex, categoryIndex));
-    });
-  });
-
-  return {
-    episodeUrl,
-    episodeTitle: getEpisodeTitle(),
-    categories,
-    clues
-  };
-
-  function parseClueCell(cell, categoryId, rowIndex, categoryIndex) {
-    const id = categoryId + "-row-" + rowIndex;
-
-    if (!cell) {
-      return unavailableClue(id, categoryId, rowIndex, categoryIndex);
-    }
-
-    if (cell.querySelector("img, audio, video, object, embed")) {
-      return unavailableClue(id, categoryId, rowIndex, categoryIndex);
-    }
-
-    const value = cleanText(cell.querySelector(".clue_value"));
-    const clueText = cleanText(cell.querySelector(".clue_text"));
-    const response = cleanText(cell.querySelector("em.correct_response"));
-
-    if (!value || !clueText || !response) {
-      return unavailableClue(id, categoryId, rowIndex, categoryIndex);
-    }
-
-    return {
-      id,
-      categoryId,
-      rowIndex,
-      categoryIndex,
-      value,
-      numericValue: parseDollarValue(value),
-      clueText,
-      response,
-      status: "available",
-      outcome: null
-    };
-  }
-
-  function unavailableClue(id, categoryId, rowIndex, categoryIndex) {
-    return {
-      id,
-      categoryId,
-      rowIndex,
-      categoryIndex,
-      value: "N/A",
-      numericValue: 0,
-      clueText: "",
-      response: "",
-      status: "unavailable",
-      outcome: null
-    };
-  }
-
-  function getEpisodeTitle() {
-    const titleCandidates = [
-      document.querySelector("#game_title"),
-      document.querySelector("#content h1"),
-      document.querySelector("title")
-    ];
-
-    for (const candidate of titleCandidates) {
-      const text = cleanText(candidate);
-      if (text) {
-        return text.replace(/\s*-\s*J! Archive\s*$/i, "");
-      }
-    }
-
-    return "";
-  }
-
-  function cleanText(node) {
-    if (!node) {
-      return "";
-    }
-
-    return node.textContent.replace(/\s+/g, " ").trim();
-  }
-
-  function parseDollarValue(value) {
-    const parsed = Number(value.replace(/[^\d.-]/g, ""));
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
 }
 
 function resolveUrl(value, baseUrl) {

@@ -1,30 +1,30 @@
 {
-  "episodeUrl": "https://www.j-archive.com/showgame.php?game_id=9471",
-  "episodeTitle": "Show #9582 - Tuesday, June 9, 2026",
+  "episodeUrl": "https://www.j-archive.com/showgame.php?game_id=9504",
+  "episodeTitle": "Show #9615 - Friday, July 24, 2026",
   "categories": [
     {
       "id": "category-0",
-      "title": "GOOD & BAD DADS IN HISTORY"
+      "title": "IN TUNE WITH TOLKIEN"
     },
     {
       "id": "category-1",
-      "title": "SAY THE CELEB'S NAME RIGHT!"
+      "title": "GOING UNDER"
     },
     {
       "id": "category-2",
-      "title": "ON THE GREEN"
+      "title": "WEBSTER'S THIRD DEFINES STUFF"
     },
     {
       "id": "category-3",
-      "title": "MAGAZINES BY RECURRING FEATURE"
+      "title": "FICTIONAL COMPANIES & PRODUCTS"
     },
     {
       "id": "category-4",
-      "title": "WORDS FROM TV"
+      "title": "MY BAGS ARE PACKED"
     },
     {
       "id": "category-5",
-      "title": "THE WONDER TWINS ACTIVATE!"
+      "title": "I'M OUTTA HERE"
     }
   ],
   "clues": [
@@ -35,10 +35,11 @@
       "categoryIndex": 0,
       "value": "$200",
       "numericValue": 200,
-      "clueText": "With the best of intentions, Czar Nicholas II left healthcare of his only son Alexei to this \"Mad Monk\"",
-      "response": "Rasputin",
+      "clueText": "Meaning \"Foe-hammer\", Glamdring was the name of an elven sword wielded by this magical man",
+      "response": "Gandalf",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-1-row-0",
@@ -47,10 +48,11 @@
       "categoryIndex": 1,
       "value": "$200",
       "numericValue": 200,
-      "clueText": "Wait, what?! This Oscar-nominated actress said her family says her last name with an \"ee\" sound, not \"ay\"; now that's wicked!",
-      "response": "Ariana Grande",
+      "clueText": "Araminta Ross was the birth name of this leader of the Underground Railroad",
+      "response": "Harriet Tubman",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-2-row-0",
@@ -59,10 +61,11 @@
       "categoryIndex": 2,
       "value": "$200",
       "numericValue": 200,
-      "clueText": "This organization founded in 1971 has protected animals in various ways, including guiding boats between whales & harpooners",
-      "response": "Greenpeace",
+      "clueText": "\"Unable to read or write\", which seems unlikely right now",
+      "response": "illiterate",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-3-row-0",
@@ -71,10 +74,11 @@
       "categoryIndex": 3,
       "value": "$200",
       "numericValue": 200,
-      "clueText": "Cheers & Jeers;Fall Preview",
-      "response": "TV Guide",
+      "clueText": "The Acme products purchased by this cartoon character never quite work; in August, him \"vs. Acme\" comes to the big screen",
+      "response": "Wile E. Coyote",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-4-row-0",
@@ -83,10 +87,11 @@
       "categoryIndex": 4,
       "value": "$200",
       "numericValue": 200,
-      "clueText": "Later co-opted by surfers & turtles, this expression of enthusiasm was first popularized by the TV series \"Howdy Doody\"",
-      "response": "cowabunga",
+      "clueText": "My suitcase from this brand fell off the luggage cart; I hope the bag's as strong as the biblical guy who inspired the name",
+      "response": "Samsonite",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-5-row-0",
@@ -95,10 +100,11 @@
       "categoryIndex": 5,
       "value": "$200",
       "numericValue": 200,
-      "clueText": "He thought his most important invention was the photophone, which he & Charles Tainter created to send calls over a beam of light",
-      "response": "Alexander Graham Bell",
+      "clueText": "Emperor Akihito abdicated this country's Chrysanthemum Throne in 2019, the first to do so in over 200 years",
+      "response": "Japan",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-0-row-1",
@@ -107,10 +113,11 @@
       "categoryIndex": 0,
       "value": "$400",
       "numericValue": 400,
-      "clueText": "In 1884 he left his infant daughter Alice with his sister while he lived on a ranch in the Dakotas",
-      "response": "Theodore Roosevelt",
+      "clueText": "On their way to Mordor, Frodo & Sam were blocked for a time by Shelob, one of these creatures, in her lair",
+      "response": "a giant spider",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-1-row-1",
@@ -119,10 +126,11 @@
       "categoryIndex": 1,
       "value": "$400",
       "numericValue": 400,
-      "clueText": "A type of drink leads folks to screw up this \"Hamnet\" star's name, but put the stress on the first syllable instead",
-      "response": "Paul Mescal",
+      "clueText": "Completed in 1843 in England, the first successful tunnel under a river was under this one",
+      "response": "the Thames",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-2-row-1",
@@ -131,10 +139,11 @@
       "categoryIndex": 2,
       "value": "$400",
       "numericValue": 400,
-      "clueText": "Home of the Masters, this golf course has a subterranean cooling system to cool its greens during hot summer months",
-      "response": "Augusta National",
+      "clueText": "\"The person appointed by a testator (regarding their) will...to see its provisions carried into effect after\" their death",
+      "response": "an executor",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-3-row-1",
@@ -143,10 +152,11 @@
       "categoryIndex": 3,
       "value": "$400",
       "numericValue": 400,
-      "clueText": "Spy vs. Spy;The Fold-In",
-      "response": "MAD magazine",
+      "clueText": "It's the company run by Tony, aka Iron Man",
+      "response": "Stark Industries",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-4-row-1",
@@ -155,10 +165,11 @@
       "categoryIndex": 4,
       "value": "$400",
       "numericValue": 400,
-      "clueText": "\"American Idol\" judge Randy Jackson bestowed many \"dawg\"s upon us, in addition to popularizing this synonym for off-key",
-      "response": "pitchy",
+      "clueText": "Despite its name, you can carry whatever you like in this usually round piece of luggage; I packed a wheel of cheese in mine",
+      "response": "a hatbox",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-5-row-1",
@@ -167,10 +178,11 @@
       "categoryIndex": 5,
       "value": "$400",
       "numericValue": 400,
-      "clueText": "A 1969 video shows creators Baer & Harrison playing an early version of this back-&-forth video game \"when we ought to be working\"",
-      "response": "Pong",
+      "clueText": "In her last cabinet meeting at 10 Downing St. in 1990, she said funny how it was time to leave despite having won a majority",
+      "response": "Thatcher",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-0-row-2",
@@ -179,10 +191,11 @@
       "categoryIndex": 0,
       "value": "$600",
       "numericValue": 600,
-      "clueText": "Aka Dracul, the II prince of Wallachia of this name gave up 2 sons to an Ottoman sultan with little intention of getting them back",
-      "response": "Vlad",
+      "clueText": "In the spoof movie \"Fackham Hall\", Tolkien is inspired when a wife uses this 2-word endearment for her husband",
+      "response": "my precious",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-1-row-2",
@@ -191,10 +204,11 @@
       "categoryIndex": 1,
       "value": "$600",
       "numericValue": 600,
-      "clueText": "The first part of the surname of this actress, Cosette on film, is said like a weary exhale; the second, like Mr. Armisen",
-      "response": "(Amanda) Seyfried",
+      "clueText": "A multiple world title holder, pro wrestler Mark Calaway was better known by this name",
+      "response": "The Undertaker",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-2-row-2",
@@ -203,10 +217,11 @@
       "categoryIndex": 2,
       "value": "$600",
       "numericValue": 600,
-      "clueText": "In 1775 Ethan Allen no longer led this Vermont militia, but not because at 37, Mr. Allen didn't quite fit the title anymore",
-      "response": "the Green Mountain Boys",
+      "clueText": "\"A person who is 70 or more but less than 80 years old\"",
+      "response": "a septuagenarian",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-3-row-2",
@@ -215,10 +230,11 @@
       "categoryIndex": 3,
       "value": "$600",
       "numericValue": 600,
-      "clueText": "Heroes Among Us; British Royal Family News",
-      "response": "People magazine",
+      "clueText": "This magazine with a name familiar to fashion models turns the pages in \"The Devil Wears Prada\" films",
+      "response": "Runway",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-4-row-2",
@@ -227,10 +243,11 @@
       "categoryIndex": 4,
       "value": "$600",
       "numericValue": 600,
-      "clueText": "Kris Jenner has trademarked this word she coined for her role as a working parent who wears multiple hats",
-      "response": "a momager",
+      "clueText": "I crammed insufficient amounts of liquid toiletries into a clear pouch to comply with the TSA policy known by these 3 numbers",
+      "response": "3-1-1",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-5-row-2",
@@ -238,11 +255,12 @@
       "rowIndex": 2,
       "categoryIndex": 5,
       "value": "$600",
-      "numericValue": 600,
-      "clueText": "In the early 20th c. psychologists Binet & Simon developed the granddaddy of these, for kids struggling in école",
-      "response": "IQ tests",
+      "numericValue": 0,
+      "clueText": "Sun Microsystems CEO Jonathan Schwartz was the 1st Fortune 200 exec to resign via tweet; he wrote this type of poem suited to the medium",
+      "response": "a haiku",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": true
     },
     {
       "id": "category-0-row-3",
@@ -251,10 +269,11 @@
       "categoryIndex": 0,
       "value": "$800",
       "numericValue": 800,
-      "clueText": "This Tudor statesman & saint had his daughters educated; one paid him back by retrieving his severed head for a decent burial",
-      "response": "Sir Thomas More",
+      "clueText": "Aka the Onodrim, these large tree-like beings were one of the oldest races of Middle Earth",
+      "response": "Ents",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-1-row-3",
@@ -263,10 +282,11 @@
       "categoryIndex": 1,
       "value": "$800",
       "numericValue": 800,
-      "clueText": "The second syllable in the single name of this actress is not to \"die\" for, but rather sounds like a part of the calendar",
-      "response": "Zendaya",
+      "clueText": "The name of this company founded in 1851 & known for underwear suggests its origin in textile manufacturing",
+      "response": "Fruit of the Loom",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-2-row-3",
@@ -275,10 +295,11 @@
       "categoryIndex": 2,
       "value": "$800",
       "numericValue": 800,
-      "clueText": "Shakespeare mentions this song by name twice in \"The Merry Wives of Windsor\"",
-      "response": "\"Greensleeves\"",
+      "clueText": "\"The young of an animal of the horse family... compare colt, filly\"",
+      "response": "a foal",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-3-row-3",
@@ -287,10 +308,11 @@
       "categoryIndex": 3,
       "value": "$800",
       "numericValue": 800,
-      "clueText": "Healthy You;Big5-Oh",
-      "response": "AARP: The Magazine",
+      "clueText": "On \"The Simpsons\" you can treat yourself to a Duff beer or this cola that sounds like it might work similarly to the beer",
+      "response": "Buzz Cola",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-4-row-3",
@@ -299,10 +321,11 @@
       "categoryIndex": 4,
       "value": "$800",
       "numericValue": 800,
-      "clueText": "\"Star Trek\" gave us this alliterative term for a state of deep understanding between two people; it's now also the name of a party game",
-      "response": "a mind meld",
+      "clueText": "I bought an original 1858 stackable flat-lid trunk from this luggage maker & now fashion house; spoiler alert: not a good carry-on",
+      "response": "Louis Vuitton",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-5-row-3",
@@ -311,10 +334,11 @@
       "categoryIndex": 5,
       "value": "$800",
       "numericValue": 800,
-      "clueText": "Cooke & Wheatstone's version of this had early popularity, sending a message in 1845 from Slough to Paddington to help catch a killer",
-      "response": "a telegraph",
+      "clueText": "Celebrations erupted in the streets of Harare after the 2017 resignation of this president who once said, \"Only God will remove me\"",
+      "response": "Mugabe",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-0-row-4",
@@ -323,10 +347,11 @@
       "categoryIndex": 0,
       "value": "$1000",
       "numericValue": 1000,
-      "clueText": "Spanish king Philip IV & his niece wife let their infanta shine in the center of this Velázquez painting",
-      "response": "Las Meninas",
+      "clueText": "In a war against the Orcs, the dwarf Thorin, son of Thráin, earned this nickname",
+      "response": "Oakenshield",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-1-row-4",
@@ -335,10 +360,11 @@
       "categoryIndex": 1,
       "value": "$1000",
       "numericValue": 1000,
-      "clueText": "This \"Succession\" actress says her last name \"looks like look or book\", but it's pronounced with an \"ooo\"",
-      "response": "Sarah Snook",
+      "clueText": "The Nautilus is a submarine, not a monster of the deep, & it's what is attacking ships in this adventure novel",
+      "response": "Twenty Thousand Leagues Under the Sea",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-2-row-4",
@@ -347,22 +373,24 @@
       "categoryIndex": 2,
       "value": "$1000",
       "numericValue": 1000,
-      "clueText": "Verdigris is a type of this thin layer formed by acidic reactions; it's that greenish hue on weathered copper",
-      "response": "a patina",
+      "clueText": "\"One who speaks or writes many languages... multilingual\"",
+      "response": "a polyglot",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-3-row-4",
       "categoryId": "category-3",
       "rowIndex": 4,
       "categoryIndex": 3,
-      "value": "N/A",
-      "numericValue": 0,
-      "clueText": "",
-      "response": "",
-      "status": "unavailable",
-      "outcome": null
+      "value": "$1000",
+      "numericValue": 1000,
+      "clueText": "Nautical name of the airline that brings the characters on \"Lost\" to the start of their odd adventure",
+      "response": "Oceanic (Airlines)",
+      "status": "available",
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-4-row-4",
@@ -371,10 +399,11 @@
       "categoryIndex": 4,
       "value": "$1000",
       "numericValue": 1000,
-      "clueText": "Bugs Bunny used this name of Noah's great-grandson, a mighty biblical hunter, to refer to Elmer Fudd; now it's a synonym for idiot",
-      "response": "Nimrod",
+      "clueText": "Per FAA rules, my electric toothbrush is in my carry-on, as it has one of these batteries prone to overheating & \"thermal runaway\"",
+      "response": "a lithium battery",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     },
     {
       "id": "category-5-row-4",
@@ -383,10 +412,13 @@
       "categoryIndex": 5,
       "value": "$1000",
       "numericValue": 1000,
-      "clueText": "Cousteau & Gagnan's diving invention, first dubbed the scaphandre autonome, gained fame under this anatomical name",
-      "response": "the Aqua-Lung",
+      "clueText": "Before Benedict XVI in 2013, the last pope to resign was Gregory XII in 1415, as part of this \"Great\" crisis in church leadership",
+      "response": "the Great Schism",
       "status": "available",
-      "outcome": null
+      "outcome": null,
+      "sourceDailyDouble": false
     }
-  ]
+  ],
+  "dailyDoubleClueId": "category-5-row-2",
+  "dailyDoubleSelection": "source"
 }

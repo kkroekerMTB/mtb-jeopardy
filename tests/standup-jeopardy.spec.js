@@ -29,6 +29,20 @@ test.describe("Standup Jeopardy", () => {
     await expect(page.getByRole("button", { name: "$1,234" })).toBeVisible();
   });
 
+  test("does not visually reveal the Daily Double tile before it is selected", async ({ page }) => {
+    await page.goto(appUrl);
+
+    const ordinaryTile = page.locator(".tile").first();
+    const dailyDoubleTile = page.locator(".tile").nth(2);
+
+    await expect(dailyDoubleTile).toHaveText("$200");
+    await expect(dailyDoubleTile).toHaveAttribute("class", await ordinaryTile.getAttribute("class"));
+    await expect(dailyDoubleTile).toHaveCSS(
+      "background-color",
+      await ordinaryTile.evaluate((element) => getComputedStyle(element).backgroundColor)
+    );
+  });
+
   test("shows a loading state while fetching local data and then hides it after the board renders", async ({ page }) => {
     await routeGameData(page, { delayMs: 500 });
 
@@ -103,16 +117,109 @@ test.describe("Standup Jeopardy", () => {
     await expect(page.locator("#netValue")).toHaveText("-$400");
   });
 
-  test("scores Daily Doubles like normal clues", async ({ page }) => {
+  test("requires a wager before revealing the source episode's Daily Double", async ({ page }) => {
     await page.goto(appUrl);
 
     await page.getByRole("button", { name: "$200" }).nth(2).click();
+
+    await expect(page.getByRole("heading", { name: "Daily Double" })).toBeVisible();
+    await expect(page.getByText("This clue is the source Daily Double")).toBeHidden();
+    await expect(page.getByRole("button", { name: "Close clue" })).toBeHidden();
+    await expect(page.getByRole("spinbutton", { name: "Wager" })).toHaveValue("5");
+    await expect(page.getByRole("spinbutton", { name: "Wager" })).toHaveAttribute("min", "5");
+    await expect(page.getByRole("spinbutton", { name: "Wager" })).toHaveAttribute("max", "1000");
+    await expect(page.getByText("Current score: $0")).toBeVisible();
+    await expect(page.getByText("Wager $5–$1,000")).toBeVisible();
+  });
+
+  test("locks a true Daily Double wager and adds it to the team score", async ({ page }) => {
+    await page.goto(appUrl);
+
+    await page.getByRole("button", { name: "$200" }).first().click();
     await page.locator("#clueCard").click();
-    await expect(page.getByText("normal scoring")).toBeVisible();
+    await page.getByRole("button", { name: "Correct" }).click();
+    await expect(page.locator("#netValue")).toHaveText("$200");
+
+    const dailyDoubleTile = page.locator(".tile").nth(2);
+    await dailyDoubleTile.click();
+    await expect(page.getByRole("spinbutton", { name: "Wager" })).toHaveValue("200");
+
+    await page.getByRole("button", { name: "Lock wager" }).click();
+
+    await expect(page.getByText("True Daily Double!")).toBeVisible();
+    await expect(page.getByText("Wager: $200")).toBeVisible();
+    await expect(page.getByText("This clue is the source Daily Double")).toBeVisible();
+    await expect(page.getByRole("spinbutton", { name: "Wager" })).toBeHidden();
+
+    await page.locator("#clueCard").click();
     await page.getByRole("button", { name: "Correct" }).click();
 
-    await expect(page.locator("#correctCount")).toHaveText("1");
-    await expect(page.locator("#netValue")).toHaveText("$200");
+    await expect(page.locator("#correctCount")).toHaveText("2");
+    await expect(page.locator("#netValue")).toHaveText("$400");
+    await expect(dailyDoubleTile).toBeDisabled();
+    await expect(dailyDoubleTile).toHaveCSS("background-color", "rgb(165, 37, 37)");
+    await expect(dailyDoubleTile).toContainText("DD +$200");
+  });
+
+  test("subtracts a missed Daily Double wager from the team score", async ({ page }) => {
+    await page.goto(appUrl);
+
+    const dailyDoubleTile = page.locator(".tile").nth(2);
+    await dailyDoubleTile.click();
+    await page.getByRole("spinbutton", { name: "Wager" }).fill("750");
+    await page.getByRole("button", { name: "Lock wager" }).click();
+    await page.locator("#clueCard").click();
+    await page.getByRole("button", { name: "Missed" }).click();
+
+    await expect(page.locator("#correctCount")).toHaveText("0");
+    await expect(page.locator("#missedCount")).toHaveText("1");
+    await expect(page.locator("#netValue")).toHaveText("-$750");
+    await expect(dailyDoubleTile).toContainText("DD -$750");
+  });
+
+  test("somersaults the Daily Double forward five times before enabling its wager", async ({ page }) => {
+    await page.goto(appUrl);
+
+    await page.locator(".tile").nth(2).click();
+
+    await expect(page.locator("#overlay")).toHaveClass(/daily-double-entering/);
+    await expect.poll(async () => page.locator("#clueCard").evaluate((element) => element.style.transform))
+      .toContain("rotateX(-1800deg)");
+    await expect(page.getByRole("spinbutton", { name: "Wager" })).toBeHidden();
+
+    await expect(page.locator("#overlay")).not.toHaveClass(/daily-double-entering/, { timeout: 2000 });
+    await expect(page.getByRole("spinbutton", { name: "Wager" })).toBeVisible();
+  });
+
+  test("uses a short rotation-free Daily Double entrance when reduced motion is requested", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(appUrl);
+
+    await page.locator(".tile").nth(2).click();
+
+    await expect(page.locator("#overlay")).toHaveClass(/reduced-motion-entering/);
+    await expect(page.locator("#clueCard")).not.toHaveAttribute("style", /rotateX/);
+    await expect(page.getByRole("spinbutton", { name: "Wager" })).toBeHidden();
+    await expect(page.getByRole("spinbutton", { name: "Wager" })).toBeVisible({ timeout: 1000 });
+  });
+
+  test("requires a whole-dollar Daily Double wager within the displayed range", async ({ page }) => {
+    await page.goto(appUrl);
+    await page.locator(".tile").nth(2).click();
+
+    const wager = page.getByRole("spinbutton", { name: "Wager" });
+    await wager.fill("4");
+    await page.getByRole("button", { name: "Lock wager" }).click();
+    await expect(page.getByText("Enter a whole-dollar wager from $5 to $1,000.")).toBeVisible();
+    await expect(page.getByText("This clue is the source Daily Double")).toBeHidden();
+
+    await wager.fill("5.5");
+    await page.getByRole("button", { name: "Lock wager" }).click();
+    await expect(page.getByText("Enter a whole-dollar wager from $5 to $1,000.")).toBeVisible();
+
+    await wager.fill("1001");
+    await page.getByRole("button", { name: "Lock wager" }).click();
+    await expect(page.getByText("Enter a whole-dollar wager from $5 to $1,000.")).toBeVisible();
   });
 
   test("closes before reveal without marking the tile used", async ({ page }) => {
@@ -189,8 +296,10 @@ test.describe("Standup Jeopardy", () => {
 
     await page.getByRole("button", { name: "Leaderboard" }).click();
     await expect(page.getByRole("heading", { name: "Leaderboard" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "DD Amount" })).toBeVisible();
     await expect(page.locator("#leaderboardBody tr")).toHaveCount(3);
     await expect(page.getByText("The A Team")).toBeVisible();
+    await expect(page.locator("#leaderboardBody tr").first()).toContainText("$500");
 
     await page.getByRole("button", { name: "This week" }).click();
     await expect(page.getByText("Team Two")).toBeVisible();
@@ -212,7 +321,9 @@ test.describe("Standup Jeopardy", () => {
 
     await page.getByRole("button", { name: "Submit score" }).click();
     await expect(page.getByRole("dialog", { name: "Submit score" })).toBeVisible();
-    await expect(page.locator("#submitScoreSummary")).toHaveText("The A Team: $0 (0 correct, 0 missed)");
+    await expect(page.locator("#submitScoreSummary")).toHaveText(
+      "The A Team: $0 (0 correct, 0 missed) · DD Amount: $0"
+    );
 
     await page.getByRole("button", { name: "Cancel" }).click();
 
@@ -235,7 +346,9 @@ test.describe("Standup Jeopardy", () => {
     await expect(page.locator("#netValue")).toHaveText("$200");
 
     await page.getByRole("button", { name: "Submit score" }).click();
-    await expect(page.locator("#submitScoreSummary")).toHaveText("The A Team: $200 (1 correct, 0 missed)");
+    await expect(page.locator("#submitScoreSummary")).toHaveText(
+      "The A Team: $200 (1 correct, 0 missed) · DD Amount: $0"
+    );
     await page.getByRole("button", { name: "Submit", exact: true }).click();
 
     await expect(page.getByRole("button", { name: "Submitted" })).toBeDisabled();
@@ -245,8 +358,37 @@ test.describe("Standup Jeopardy", () => {
       net: 200,
       correct: 1,
       missed: 0,
+      daily_double_amount: 0,
       sourceEpisode: "Show #9999 - Monday, June 1, 2026",
       sourceUrl: latestGameUrl
+    });
+  });
+
+  test("submits the signed Daily Double result in the score object", async ({ page }) => {
+    const submissions = [];
+    await routeScoreSubmission(page, (payload) => {
+      submissions.push(payload);
+    });
+
+    await page.goto(appUrl);
+    await page.getByRole("textbox", { name: /team name/i }).fill("The A Team");
+    await page.locator(".tile").nth(2).click();
+    await page.getByRole("spinbutton", { name: "Wager" }).fill("600");
+    await page.getByRole("button", { name: "Lock wager" }).click();
+    await page.locator("#clueCard").click();
+    await page.getByRole("button", { name: "Missed" }).click();
+
+    await page.getByRole("button", { name: "Submit score" }).click();
+    await expect(page.locator("#submitScoreSummary")).toContainText("DD Amount: -$600");
+    await page.getByRole("button", { name: "Submit", exact: true }).click();
+
+    expect(submissions).toHaveLength(1);
+    expect(submissions[0]).toMatchObject({
+      teamName: "The A Team",
+      net: -600,
+      correct: 0,
+      missed: 1,
+      daily_double_amount: -600
     });
   });
 
@@ -263,6 +405,17 @@ test.describe("Standup Jeopardy", () => {
 
     await expect(page.getByText("Couldn't load latest game")).toBeVisible();
     await expect.poll(() => errors.some((message) => message.includes("Couldn't load latest game"))).toBe(true);
+  });
+
+  test("rejects generated data without one playable Daily Double", async ({ page }) => {
+    const board = testBoard();
+    delete board.dailyDoubleClueId;
+    await routeGameData(page, { body: JSON.stringify(board) });
+
+    await page.goto(appUrl);
+
+    await expect(page.getByText("Couldn't load latest game")).toBeVisible();
+    await expect(page.locator("#board")).toBeHidden();
   });
 
   test("keeps MVP scope controls out of the UI", async ({ page }) => {
@@ -294,6 +447,8 @@ test("generated game data is available in the repository", async () => {
   expect(board.episodeUrl).toMatch(/^https:\/\/www\.j-archive\.com\/showgame\.php\?game_id=\d+$/);
   expect(board.categories).toHaveLength(6);
   expect(board.clues.length).toBeGreaterThanOrEqual(1);
+  expect(board.clues.filter((clue) => clue.id === board.dailyDoubleClueId && clue.status === "available")).toHaveLength(1);
+  expect(board.clues.find((clue) => clue.id === board.dailyDoubleClueId).numericValue).toBe(0);
 });
 
 async function routeGameData(page, options = {}) {
@@ -338,8 +493,8 @@ async function routeScoreSubmission(page, onSubmit) {
 
 function testScores(filter) {
   const scores = [
-    { teamName: "The A Team", score: 1200, correct: 3, missed: 1, games: 1 },
-    { teamName: "Team Two", score: 800, correct: 2, missed: 0, games: 1 },
+    { teamName: "The A Team", score: 1200, daily_double_amount: 500, correct: 3, missed: 1, games: 1 },
+    { teamName: "Team Two", score: 800, daily_double_amount: -200, correct: 2, missed: 0, games: 1 },
     { teamName: "Team Trio", score: 400, correct: 1, missed: 1, games: 1 }
   ];
 
@@ -366,11 +521,12 @@ function testBoard() {
   return {
     episodeUrl: latestGameUrl,
     episodeTitle: "Show #9999 - Monday, June 1, 2026",
+    dailyDoubleClueId: "category-2-row-0",
     categories,
     clues: [
       available(0, 0, "$200", "A mass of cytoplasm bound by a membrane, it's the smallest independently functioning unit of living matter", "a cell"),
       available(1, 0, "$200", "This clue has formatting and extra spacing", "kept exactly"),
-      available(2, 0, "$200", "This clue is tagged as a Daily Double but plays normally", "normal scoring"),
+      available(2, 0, "$200", "This clue is the source Daily Double", "a special response"),
       available(3, 0, "$200", "Playable malformed-category clue", "fine"),
       available(4, 0, "$200", "Playable missing-category clue", "fine"),
       unavailable(5, 0),

@@ -440,6 +440,13 @@
       box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7);
     }
 
+    .tile.daily-double-used {
+      background: var(--missed);
+      color: #fff;
+      font-size: clamp(20px, 2.2vw, 34px);
+      white-space: pre-line;
+    }
+
     .overlay {
       position: fixed;
       inset: 0;
@@ -450,7 +457,8 @@
     }
 
     .overlay.animating,
-    .overlay.closing {
+    .overlay.closing,
+    .overlay.daily-double-entering {
       transition: background 260ms ease;
     }
 
@@ -460,6 +468,11 @@
 
     .overlay.closing {
       background: rgba(2, 4, 18, 0);
+    }
+
+    .overlay.daily-double-entering {
+      background: rgba(2, 4, 18, 0);
+      perspective: 1400px;
     }
 
     .overlay.active {
@@ -481,6 +494,81 @@
       text-align: center;
       cursor: pointer;
       transform-origin: top left;
+    }
+
+    .clue-card.daily-double {
+      background: #a52525;
+    }
+
+    .clue-card.wagering .clue-value,
+    .clue-card.wagering .clue-text,
+    .clue-card.wagering .response,
+    .clue-card.wagering .score-actions {
+      display: none;
+    }
+
+    .wager-panel {
+      width: min(620px, 90%);
+      margin: 0 auto;
+      padding: 36px;
+      border: 2px solid rgba(255, 255, 255, 0.72);
+      background: rgba(0, 0, 0, 0.18);
+      cursor: default;
+    }
+
+    .wager-panel h2 {
+      margin: 0 0 24px;
+      color: #fff;
+      font-size: clamp(42px, 6vw, 76px);
+      text-transform: uppercase;
+    }
+
+    .wager-guidance {
+      margin: 8px 0;
+      color: #fff8dc;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .wager-field {
+      display: grid;
+      gap: 10px;
+      margin-top: 26px;
+      text-align: left;
+    }
+
+    .wager-field label {
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .wager-field input {
+      width: 100%;
+      padding: 16px;
+      border: 2px solid #fff;
+      background: #fff;
+      color: #10142a;
+      font-size: 28px;
+      font-weight: 800;
+    }
+
+    .wager-submit {
+      width: 100%;
+      margin-top: 18px;
+      padding: 16px 20px;
+      border: 2px solid #fff;
+      background: var(--jeopardy-gold);
+      color: #03145f;
+      cursor: pointer;
+      font-size: 22px;
+      font-weight: 900;
+    }
+
+    .wager-error {
+      min-height: 22px;
+      margin: 10px 0 0;
+      color: #fff;
+      font-weight: 700;
     }
 
     .overlay.animating .clue-card {
@@ -513,6 +601,13 @@
       color: var(--jeopardy-gold);
       font-size: 30px;
       font-weight: 900;
+    }
+
+    .true-daily-double {
+      margin-bottom: 10px;
+      color: #fff;
+      font-size: clamp(28px, 3vw, 44px);
+      text-transform: uppercase;
     }
 
     .clue-text {
@@ -687,6 +782,7 @@
           <tr>
             <th scope="col">Team</th>
             <th scope="col">Score</th>
+            <th scope="col">DD Amount</th>
             <th scope="col">Correct</th>
             <th scope="col">Missed</th>
             <th scope="col">Games</th>
@@ -714,7 +810,21 @@
   <section id="overlay" class="overlay" aria-modal="true" role="dialog" hidden>
     <article id="clueCard" class="clue-card">
       <button id="closeClue" class="close-button" type="button" aria-label="Close clue">&times;</button>
-      <div class="clue-value"><span id="overlayValue"></span></div>
+      <section id="wagerPanel" class="wager-panel" hidden>
+        <h2>Daily Double</h2>
+        <p id="wagerCurrentScore" class="wager-guidance"></p>
+        <p id="wagerRange" class="wager-guidance"></p>
+        <div class="wager-field">
+          <label for="dailyDoubleWager">Wager</label>
+          <input id="dailyDoubleWager" name="dailyDoubleWager" type="number" step="1" inputmode="numeric" />
+        </div>
+        <button id="lockWager" class="wager-submit" type="button">Lock wager</button>
+        <p id="wagerError" class="wager-error" aria-live="polite"></p>
+      </section>
+      <div class="clue-value">
+        <div id="trueDailyDouble" class="true-daily-double" hidden>True Daily Double!</div>
+        <span id="overlayValue"></span>
+      </div>
       <p id="overlayClue" class="clue-text"></p>
       <p id="overlayResponse" class="response"></p>
       <div class="score-actions" aria-label="Mark clue result">
@@ -744,7 +854,10 @@
       isTransitioning: false,
       leaderboardFilter: "today",
       scoreSubmitted: false,
-      scoreSubmitting: false
+      scoreSubmitting: false,
+      dailyDoubleWager: 0,
+      dailyDoubleScoreBeforeWager: 0,
+      wagerLocked: false
     };
 
     const els = {
@@ -774,6 +887,13 @@
       overlay: document.getElementById("overlay"),
       clueCard: document.getElementById("clueCard"),
       closeClue: document.getElementById("closeClue"),
+      wagerPanel: document.getElementById("wagerPanel"),
+      wagerCurrentScore: document.getElementById("wagerCurrentScore"),
+      wagerRange: document.getElementById("wagerRange"),
+      dailyDoubleWager: document.getElementById("dailyDoubleWager"),
+      lockWager: document.getElementById("lockWager"),
+      wagerError: document.getElementById("wagerError"),
+      trueDailyDouble: document.getElementById("trueDailyDouble"),
       overlayValue: document.getElementById("overlayValue"),
       overlayClue: document.getElementById("overlayClue"),
       overlayResponse: document.getElementById("overlayResponse"),
@@ -823,6 +943,14 @@
       if (!board.clues.length) {
         throw new Error("Game data has no clues.");
       }
+
+      const dailyDoubleMatches = board.clues.filter((clue) =>
+        clue.id === board.dailyDoubleClueId && clue.status === "available"
+      );
+
+      if (typeof board.dailyDoubleClueId !== "string" || dailyDoubleMatches.length !== 1) {
+        throw new Error("Game data must identify exactly one playable Daily Double.");
+      }
     }
 
     function renderBoard() {
@@ -866,6 +994,12 @@
       if (clue.outcome) {
         tile.classList.add("used");
         tile.style.setProperty("--outcome-color", clue.outcome === "correct" ? "var(--correct)" : "var(--missed)");
+
+        if (clue.id === state.board.dailyDoubleClueId) {
+          tile.classList.add("daily-double-used");
+          tile.textContent = "DD\n" + formatSignedCurrency(clue.dailyDoubleAmount);
+        }
+
         tile.disabled = true;
         return tile;
       }
@@ -891,21 +1025,32 @@
     function getScoreSummary() {
       const board = state.board;
       if (!board) {
-        return { correct: 0, missed: 0, net: 0, unavailable: 0 };
+        return { correct: 0, missed: 0, net: 0, unavailable: 0, dailyDoubleAmount: 0 };
       }
 
       const availableClues = board.clues.filter((clue) => clue.status === "available");
       const correct = availableClues.filter((clue) => clue.outcome === "correct");
       const missed = availableClues.filter((clue) => clue.outcome === "missed");
       const unavailable = board.clues.filter((clue) => clue.status === "unavailable").length;
-      const net = correct.reduce((sum, clue) => sum + clue.numericValue, 0) -
-        missed.reduce((sum, clue) => sum + clue.numericValue, 0);
+      const net = availableClues.reduce((sum, clue) => {
+        if (!clue.outcome) {
+          return sum;
+        }
+
+        if (Number.isFinite(clue.scoreDelta)) {
+          return sum + clue.scoreDelta;
+        }
+
+        return sum + (clue.outcome === "correct" ? clue.numericValue : -clue.numericValue);
+      }, 0);
+      const dailyDouble = availableClues.find((clue) => clue.id === board.dailyDoubleClueId);
 
       return {
         correct: correct.length,
         missed: missed.length,
         net,
-        unavailable
+        unavailable,
+        dailyDoubleAmount: Number(dailyDouble && dailyDouble.dailyDoubleAmount) || 0
       };
     }
 
@@ -918,18 +1063,79 @@
 
       state.selectedClueId = clue.id;
       state.revealed = false;
+      state.wagerLocked = false;
       state.selectedTileRect = sourceTile ? sourceTile.getBoundingClientRect() : null;
+      const isDailyDouble = clue.id === state.board.dailyDoubleClueId;
+      els.clueCard.classList.toggle("daily-double", isDailyDouble);
+      els.clueCard.classList.toggle("wagering", isDailyDouble);
+      els.closeClue.hidden = isDailyDouble;
+      els.wagerPanel.hidden = true;
+      els.trueDailyDouble.hidden = true;
       els.overlayValue.textContent = clue.value;
       els.overlayClue.textContent = clue.clueText;
       els.overlayResponse.textContent = clue.response;
       els.clueCard.classList.remove("revealed");
+
+      if (isDailyDouble) {
+        prepareDailyDoubleWager();
+      }
+
       els.overlay.hidden = false;
       els.overlay.classList.add("active");
       document.body.classList.add("overlay-open");
-      animateClueOpen();
+      animateClueOpen(isDailyDouble);
     }
 
-    function animateClueOpen() {
+    function prepareDailyDoubleWager() {
+      const currentScore = getScoreSummary().net;
+      const maximumWager = Math.max(currentScore, 1000);
+      const defaultWager = currentScore >= 5 ? currentScore : 5;
+
+      state.dailyDoubleScoreBeforeWager = currentScore;
+      state.dailyDoubleWager = 0;
+      els.dailyDoubleWager.min = "5";
+      els.dailyDoubleWager.max = String(maximumWager);
+      els.dailyDoubleWager.value = String(defaultWager);
+      els.wagerCurrentScore.textContent = "Current score: " + formatCurrency(currentScore);
+      els.wagerRange.textContent = "Wager $5–" + formatCurrency(maximumWager);
+      els.wagerError.textContent = "";
+    }
+
+    function lockDailyDoubleWager() {
+      if (!state.selectedClueId || state.wagerLocked) {
+        return;
+      }
+
+      const clue = findClue(state.selectedClueId);
+      if (!clue || clue.id !== state.board.dailyDoubleClueId) {
+        return;
+      }
+
+      const wager = Number(els.dailyDoubleWager.value);
+      const minimumWager = Number(els.dailyDoubleWager.min);
+      const maximumWager = Number(els.dailyDoubleWager.max);
+
+      if (!Number.isInteger(wager) || wager < minimumWager || wager > maximumWager) {
+        els.wagerError.textContent = "Enter a whole-dollar wager from " +
+          formatCurrency(minimumWager) + " to " + formatCurrency(maximumWager) + ".";
+        return;
+      }
+
+      state.dailyDoubleWager = wager;
+      state.wagerLocked = true;
+      els.wagerPanel.hidden = true;
+      els.clueCard.classList.remove("wagering");
+      els.overlayValue.textContent = "Wager: " + formatCurrency(wager);
+      els.trueDailyDouble.hidden = !(state.dailyDoubleScoreBeforeWager > 0 &&
+        wager === state.dailyDoubleScoreBeforeWager);
+    }
+
+    function animateClueOpen(isDailyDouble) {
+      if (isDailyDouble) {
+        animateDailyDoubleOpen();
+        return;
+      }
+
       const sourceRect = state.selectedTileRect;
 
       if (!sourceRect) {
@@ -961,6 +1167,80 @@
       }, 300);
     }
 
+    function animateDailyDoubleOpen() {
+      const sourceRect = state.selectedTileRect;
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      if (reduceMotion) {
+        animateReducedMotionDailyDoubleOpen();
+        return;
+      }
+
+      if (!sourceRect) {
+        els.wagerPanel.hidden = false;
+        els.dailyDoubleWager.focus();
+        return;
+      }
+
+      const targetRect = els.clueCard.getBoundingClientRect();
+      const scaleX = sourceRect.width / targetRect.width;
+      const scaleY = sourceRect.height / targetRect.height;
+      const translateX = sourceRect.left - targetRect.left;
+      const translateY = sourceRect.top - targetRect.top;
+      const startTransform = "translate(" + translateX + "px, " + translateY + "px) " +
+        "scale(" + scaleX + ", " + scaleY + ") rotateX(-1800deg)";
+      const endTransform = "translate(0, 0) scale(1, 1) rotateX(0deg)";
+
+      state.isTransitioning = true;
+      els.overlay.classList.add("daily-double-entering");
+      els.clueCard.style.transform = startTransform;
+
+      const animation = els.clueCard.animate([
+        { transform: startTransform },
+        { transform: endTransform }
+      ], {
+        duration: 1200,
+        easing: "cubic-bezier(0.2, 0.75, 0.2, 1)",
+        fill: "forwards"
+      });
+
+      requestAnimationFrame(() => {
+        els.overlay.style.background = "rgba(2, 4, 18, 0.94)";
+      });
+
+      animation.addEventListener("finish", () => {
+        animation.cancel();
+        els.overlay.classList.remove("daily-double-entering");
+        els.overlay.style.background = "";
+        els.clueCard.style.transform = "";
+        state.isTransitioning = false;
+        els.wagerPanel.hidden = false;
+        els.dailyDoubleWager.focus();
+      }, { once: true });
+    }
+
+    function animateReducedMotionDailyDoubleOpen() {
+      state.isTransitioning = true;
+      els.overlay.classList.add("reduced-motion-entering");
+
+      const animation = els.clueCard.animate([
+        { opacity: 0, transform: "scale(0.98)" },
+        { opacity: 1, transform: "scale(1)" }
+      ], {
+        duration: 240,
+        easing: "ease-out",
+        fill: "forwards"
+      });
+
+      animation.addEventListener("finish", () => {
+        animation.cancel();
+        els.overlay.classList.remove("reduced-motion-entering");
+        state.isTransitioning = false;
+        els.wagerPanel.hidden = false;
+        els.dailyDoubleWager.focus();
+      }, { once: true });
+    }
+
     function animateClueClose(afterClose) {
       const sourceRect = state.selectedTileRect;
 
@@ -990,6 +1270,11 @@
         return;
       }
 
+      const clue = findClue(state.selectedClueId);
+      if (clue && clue.id === state.board.dailyDoubleClueId && !state.wagerLocked) {
+        return;
+      }
+
       state.revealed = true;
       els.clueCard.classList.add("revealed");
     }
@@ -1000,6 +1285,7 @@
       state.selectedTileRect = null;
       state.isTransitioning = false;
       els.overlay.classList.remove("animating", "closing");
+      els.overlay.classList.remove("daily-double-entering", "reduced-motion-entering");
       els.overlay.style.background = "";
       els.clueCard.style.transform = "";
       els.overlay.classList.remove("active");
@@ -1026,6 +1312,12 @@
       }
 
       clue.outcome = outcome;
+
+      if (clue.id === state.board.dailyDoubleClueId) {
+        clue.dailyDoubleAmount = outcome === "correct" ? state.dailyDoubleWager : -state.dailyDoubleWager;
+        clue.scoreDelta = clue.dailyDoubleAmount;
+      }
+
       animateClueClose(() => {
         renderBoard();
         renderHeader();
@@ -1039,6 +1331,14 @@
     function formatCurrency(value) {
       const prefix = value < 0 ? "-$" : "$";
       return prefix + Math.abs(value).toLocaleString("en-US");
+    }
+
+    function formatSignedCurrency(value) {
+      if (value > 0) {
+        return "+" + formatCurrency(value);
+      }
+
+      return formatCurrency(value);
     }
 
     function setLoadingText(text) {
@@ -1078,7 +1378,9 @@
 
       const teamName = getTeamName();
       const summary = getScoreSummary();
-      els.submitScoreSummary.textContent = `${teamName || "Unnamed team"}: ${formatCurrency(summary.net)} (${summary.correct} correct, ${summary.missed} missed)`;
+      els.submitScoreSummary.textContent = `${teamName || "Unnamed team"}: ${formatCurrency(summary.net)} ` +
+        `(${summary.correct} correct, ${summary.missed} missed) · DD Amount: ` +
+        formatSignedCurrency(summary.dailyDoubleAmount);
       els.submitScoreStatus.textContent = teamName ? "" : "Enter a team name before submitting.";
       els.confirmSubmitScore.disabled = !teamName;
       els.submitScoreOverlay.hidden = false;
@@ -1125,6 +1427,7 @@
           net: summary.net,
           correct: summary.correct,
           missed: summary.missed,
+          daily_double_amount: summary.dailyDoubleAmount,
           sourceEpisode: state.board ? state.board.episodeTitle : "",
           sourceUrl: state.board ? state.board.episodeUrl : ""
         });
@@ -1250,6 +1553,10 @@
         scoreCell.textContent = formatCurrency(row.score);
         tr.append(scoreCell);
 
+        const dailyDoubleCell = document.createElement("td");
+        dailyDoubleCell.textContent = formatSignedCurrency(Number(row.daily_double_amount) || 0);
+        tr.append(dailyDoubleCell);
+
         const correctCell = document.createElement("td");
         correctCell.textContent = String(row.correct);
         tr.append(correctCell);
@@ -1304,6 +1611,12 @@
     els.closeClue.addEventListener("click", () => {
       if (!state.isTransitioning) {
         animateClueClose();
+      }
+    });
+    els.lockWager.addEventListener("click", lockDailyDoubleWager);
+    els.dailyDoubleWager.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        lockDailyDoubleWager();
       }
     });
     els.markCorrect.addEventListener("click", () => markOutcome("correct"));
