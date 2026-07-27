@@ -58,6 +58,71 @@ test("chooses the same playable fallback when source Daily Double metadata is un
   expect(first.clues[0].status).toBe("unavailable");
 });
 
+test("does not invent a row-position value when the source Daily Double has no row peer", () => {
+  const sourceDailyDouble = clue("category-0-row-0", 0, "available", true);
+  sourceDailyDouble.value = "";
+  sourceDailyDouble.numericValue = 0;
+  const board = {
+    episodeUrl: "https://example.test/showgame.php?game_id=9999",
+    categories: [{ id: "category-0", title: "FIRST" }],
+    clues: [
+      sourceDailyDouble,
+      clue("category-0-row-1", 1, "available", false)
+    ]
+  };
+
+  const finalized = finalizeBoard(board);
+
+  expect(finalized.dailyDoubleClueId).toBe("category-0-row-1");
+  expect(finalized.clues[0]).toMatchObject({
+    value: "N/A",
+    numericValue: 0,
+    status: "unavailable"
+  });
+});
+
+test("restores normal scoring values to ambiguous source markers that are not selected", () => {
+  const firstMarker = clue("category-0-row-0", 0, "available", true);
+  const secondMarker = {
+    ...clue("category-1-row-0", 0, "available", true),
+    categoryId: "category-1",
+    categoryIndex: 1
+  };
+  const rowPeer = {
+    ...clue("category-2-row-0", 0, "available", false),
+    categoryId: "category-2",
+    categoryIndex: 2
+  };
+  firstMarker.value = "";
+  firstMarker.numericValue = 0;
+  secondMarker.value = "";
+  secondMarker.numericValue = 0;
+  rowPeer.value = "$200";
+  rowPeer.numericValue = 200;
+  const board = {
+    episodeUrl: "https://example.test/showgame.php?game_id=9999",
+    categories: [
+      { id: "category-0", title: "FIRST" },
+      { id: "category-1", title: "SECOND" },
+      { id: "category-2", title: "THIRD" }
+    ],
+    clues: [
+      firstMarker,
+      secondMarker,
+      rowPeer,
+      clue("category-0-row-1", 1, "available", false)
+    ]
+  };
+
+  const finalized = finalizeBoard(board);
+  const ambiguousMarkers = finalized.clues.filter((item) => item.sourceDailyDouble);
+
+  expect(ambiguousMarkers).toHaveLength(2);
+  expect(ambiguousMarkers.map((item) => item.numericValue)).toEqual([200, 200]);
+  expect(ambiguousMarkers.map((item) => item.value)).toEqual(["$200", "$200"]);
+  expect(ambiguousMarkers.map((item) => item.id)).not.toContain(finalized.dailyDoubleClueId);
+});
+
 function clue(id, rowIndex, status, sourceDailyDouble) {
   return {
     id,

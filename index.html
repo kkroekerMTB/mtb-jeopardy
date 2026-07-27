@@ -1142,15 +1142,11 @@
         return;
       }
 
-      const targetRect = els.clueCard.getBoundingClientRect();
-      const scaleX = sourceRect.width / targetRect.width;
-      const scaleY = sourceRect.height / targetRect.height;
-      const translateX = sourceRect.left - targetRect.left;
-      const translateY = sourceRect.top - targetRect.top;
+      const geometry = getClueTransitionGeometry(sourceRect);
 
       state.isTransitioning = true;
       els.overlay.classList.add("animating");
-      els.clueCard.style.transform = "translate(" + translateX + "px, " + translateY + "px) scale(" + scaleX + ", " + scaleY + ")";
+      els.clueCard.style.transform = getClueTransitionTransform(geometry);
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -1182,13 +1178,8 @@
         return;
       }
 
-      const targetRect = els.clueCard.getBoundingClientRect();
-      const scaleX = sourceRect.width / targetRect.width;
-      const scaleY = sourceRect.height / targetRect.height;
-      const translateX = sourceRect.left - targetRect.left;
-      const translateY = sourceRect.top - targetRect.top;
-      const startTransform = "translate(" + translateX + "px, " + translateY + "px) " +
-        "scale(" + scaleX + ", " + scaleY + ") rotateX(-1800deg)";
+      const geometry = getClueTransitionGeometry(sourceRect);
+      const startTransform = getClueTransitionTransform(geometry, " rotateX(-1800deg)");
       const endTransform = "translate(0, 0) scale(1, 1) rotateX(0deg)";
 
       state.isTransitioning = true;
@@ -1249,20 +1240,32 @@
         return;
       }
 
-      const targetRect = els.clueCard.getBoundingClientRect();
-      const scaleX = sourceRect.width / targetRect.width;
-      const scaleY = sourceRect.height / targetRect.height;
-      const translateX = sourceRect.left - targetRect.left;
-      const translateY = sourceRect.top - targetRect.top;
+      const geometry = getClueTransitionGeometry(sourceRect);
 
       state.isTransitioning = true;
       els.overlay.classList.add("closing");
       els.overlay.style.background = "rgba(2, 4, 18, 0)";
-      els.clueCard.style.transform = "translate(" + translateX + "px, " + translateY + "px) scale(" + scaleX + ", " + scaleY + ")";
+      els.clueCard.style.transform = getClueTransitionTransform(geometry);
 
       window.setTimeout(() => {
         finishClose(afterClose);
       }, 260);
+    }
+
+    function getClueTransitionGeometry(sourceRect) {
+      const targetRect = els.clueCard.getBoundingClientRect();
+
+      return {
+        scaleX: sourceRect.width / targetRect.width,
+        scaleY: sourceRect.height / targetRect.height,
+        translateX: sourceRect.left - targetRect.left,
+        translateY: sourceRect.top - targetRect.top
+      };
+    }
+
+    function getClueTransitionTransform(geometry, suffix = "") {
+      return "translate(" + geometry.translateX + "px, " + geometry.translateY + "px) " +
+        "scale(" + geometry.scaleX + ", " + geometry.scaleY + ")" + suffix;
     }
 
     function revealClue() {

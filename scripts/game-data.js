@@ -116,12 +116,12 @@ function parseEpisodeInPage(episodeUrl) {
 }
 
 function finalizeBoard(board) {
+  normalizeSourceDailyDoubleDisplayValues(board);
+
   const sourceCandidates = board.clues.filter((clue) => clue.sourceDailyDouble);
   const playableSource = sourceCandidates.length === 1 && sourceCandidates[0].status === "available"
     ? sourceCandidates[0]
     : null;
-
-  normalizeSourceDailyDoubleDisplayValues(board);
 
   if (playableSource) {
     board.dailyDoubleClueId = playableSource.id;
@@ -165,7 +165,18 @@ function normalizeSourceDailyDoubleDisplayValues(board) {
       candidate.value &&
       candidate.value !== "N/A"
     );
-    clue.value = rowPeer ? rowPeer.value : "$" + ((clue.rowIndex + 1) * 200);
+
+    if (!rowPeer) {
+      clue.value = "N/A";
+      clue.numericValue = 0;
+      clue.clueText = "";
+      clue.response = "";
+      clue.status = "unavailable";
+      continue;
+    }
+
+    clue.value = rowPeer.value;
+    clue.numericValue = rowPeer.numericValue;
   }
 }
 
