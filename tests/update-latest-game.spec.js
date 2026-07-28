@@ -1,5 +1,5 @@
 const { test, expect } = require("@playwright/test");
-const { refreshGameData } = require("../scripts/update-latest-game");
+const { refreshGameData } = require("../scripts/game-refresh");
 
 const HOME_URL = "https://archive.test/";
 const RECENT_URL = "https://archive.test/season-42";
@@ -227,6 +227,114 @@ test("uses available fallback seasons when recent discovery and another season f
     selectionMode: "fallback"
   });
   expect(failedSeasonRequests).toBe(2);
+});
+
+test("enters fallback when the newest recent episode fails to load", async ({ page }) => {
+  const olderRecentUrl = "https://archive.test/showgame.php?game_id=9998";
+  const fallbackUrl = "https://archive.test/showgame.php?game_id=9155";
+  let olderRecentRequests = 0;
+
+  await page.route("https://archive.test/**", async (route) => {
+    const url = route.request().url();
+
+    if (url === HOME_URL) {
+      return route.fulfill({ contentType: "text/html", body: archiveHome() });
+    }
+
+    if (url === RECENT_URL) {
+      return route.fulfill({
+        contentType: "text/html",
+        body: episodeListing([
+          { url: LATEST_URL, showNumber: "9999", airedDate: "2026-07-27" },
+          { url: olderRecentUrl, showNumber: "9998", airedDate: "2026-07-24" }
+        ])
+      });
+    }
+
+    if (url === LATEST_URL) {
+      return route.fulfill({ status: 503, body: "Unavailable" });
+    }
+
+    if (url === olderRecentUrl) {
+      olderRecentRequests += 1;
+      return route.fulfill({
+        contentType: "text/html",
+        body: episodePage("Show #9998 - Friday, July 24, 2026")
+      });
+    }
+
+    if (url === "https://archive.test/showseason.php?season=40") {
+      return route.fulfill({
+        contentType: "text/html",
+        body: episodeListing([{
+          url: fallbackUrl,
+          showNumber: "9155",
+          airedDate: "2024-07-26"
+        }])
+      });
+    }
+
+    if (url === fallbackUrl) {
+      return route.fulfill({
+        contentType: "text/html",
+        body: episodePage("Show #9155 - Friday, July 26, 2024")
+      });
+    }
+
+    return route.abort();
+  });
+
+  const board = await refreshGameData({
+    page,
+    fetchImpl: async () => jsonResponse({ sourceEpisodes: [] }),
+    now: new Date("2026-07-28T14:00:00.000Z"),
+    jArchiveHomeUrl: HOME_URL,
+    scoresApiUrl: SCORES_URL,
+    fallbackSeasons: [40],
+    seasonUrlTemplate: "https://archive.test/showseason.php?season={season}"
+  });
+
+  expect(board.episodeUrl).toBe(fallbackUrl);
+  expect(board.selectionMode).toBe("fallback");
+  expect(olderRecentRequests).toBe(0);
+});
+
+test("preserves the scraped title for exact used-episode matching before synthesis", async ({ page }) => {
+  const fallbackUrl = "https://archive.test/showgame.php?game_id=9155";
+
+  await page.route("https://archive.test/**", async (route) => {
+    const url = route.request().url();
+
+    if (url === "https://archive.test/showseason.php?season=40") {
+      return route.fulfill({
+        contentType: "text/html",
+        body: episodeListing([{
+          url: fallbackUrl,
+          showNumber: "9155",
+          airedDate: "2024-07-26"
+        }])
+      });
+    }
+
+    if (url === fallbackUrl) {
+      return route.fulfill({
+        contentType: "text/html",
+        body: episodePage("A Numberless Special")
+      });
+    }
+
+    return route.fulfill({ status: 503, body: "Unavailable" });
+  });
+
+  await expect(refreshGameData({
+    page,
+    fetchImpl: async () => jsonResponse({ sourceEpisodes: ["A Numberless Special"] }),
+    now: new Date("2026-07-28T14:00:00.000Z"),
+    jArchiveHomeUrl: HOME_URL,
+    scoresApiUrl: SCORES_URL,
+    fallbackSeasons: [40],
+    seasonUrlTemplate: "https://archive.test/showseason.php?season={season}"
+  })).rejects.toThrow("No playable fallback episode was found after 1 attempts.");
 });
 
 test("fails closed before contacting JArchive when used episodes cannot be loaded", async ({ page }) => {
