@@ -115,6 +115,25 @@ function getFilterRange(filterId) {
     }
 }
 
+function parseBeforeCutoff(value) {
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const cutoff = new Date(value);
+    if (!Number.isFinite(cutoff.getTime()) || cutoff.toISOString() !== value) {
+        return null;
+    }
+
+    const earliestEpisode = Date.UTC(1984, 8, 10);
+    const clockSkewAllowance = 5 * 60 * 1000;
+    if (cutoff.getTime() < earliestEpisode || cutoff.getTime() > Date.now() + clockSkewAllowance) {
+        return null;
+    }
+
+    return cutoff;
+}
+
 function createLeaderboardApp(client) {
     const app = express();
 
@@ -130,6 +149,35 @@ function createLeaderboardApp(client) {
         }
 
         return next();
+    });
+
+    app.get("/api/source-episodes", async (req, res) => {
+        const cutoff = parseBeforeCutoff(req.query.before);
+
+        if (!cutoff) {
+            return res.status(400).json({ error: "A valid ISO before timestamp is required." });
+        }
+
+        const sourceEpisodes = new Set();
+        const query = `Timestamp lt datetime'${cutoff.toISOString()}'`;
+
+        try {
+            for await (const entity of client.listEntities({
+                queryOptions: {
+                    filter: query,
+                    select: ["source_episode"]
+                }
+            })) {
+                if (typeof entity.source_episode === "string" && entity.source_episode.trim()) {
+                    sourceEpisodes.add(entity.source_episode.trim());
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching source episodes:", error);
+            return res.status(500).json({ error: "Failed to load source episodes" });
+        }
+
+        return res.json({ sourceEpisodes: Array.from(sourceEpisodes).sort() });
     });
 
     app.get("/api/scores", async (req, res) => {

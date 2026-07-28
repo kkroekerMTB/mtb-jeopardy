@@ -193,5 +193,6 @@ function deterministicHash(value) {
 
 module.exports = {
   parseEpisodeInPage,
-  finalizeBoard
+  finalizeBoard,
+  deterministicHash
 };

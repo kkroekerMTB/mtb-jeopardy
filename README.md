@@ -29,7 +29,11 @@ To refresh the data source, run:
 npm run update:data
 ```
 
-That script opens J-Archive with Playwright from Node, follows the latest-season/latest-episode path, skips episodes that do not yet have a first-round table, transforms the first round into JSON, and writes `data/latest-game.json`.
+That script opens J-Archive with Playwright from Node, follows the latest-season/latest-episode path, skips episodes that do not yet have a first-round table, and writes `data/latest-game.json`. Before selecting an episode, it reads the distinct source episodes used before the current `America/New_York` calendar day from the leaderboard API.
+
+If the newest playable episode was already used or cannot be loaded, generation selects an unused episode from seasons 1–40. Fallback selection is deterministic for the calendar day and gives every enumerated episode equal weight. A published board is reused for the rest of its selection day so pushes and manual deployments cannot change the episode during the workday.
+
+Local generation uses the production source-episode API by default. Override it with `SCORES_API_URL`. Set `CURRENT_GAME_DATA_URL` to enable the published-board day lock; the Pages workflow sets this automatically, while ordinary local runs remain unlocked.
 
 ## What we want
 
@@ -82,7 +86,7 @@ That script opens J-Archive with Playwright from Node, follows the latest-season
 * The browser should read `data/latest-game.json` from the same origin as the page. It should not make runtime requests to J-Archive or public CORS proxies.
 * Do not embed sample episode payloads in the static page.
 * Do not depend on external libraries, fonts, scripts, stylesheets, or other CDN resources. Use plain HTML, CSS, and JavaScript browser APIs only.
-* The data generator should fetch and render only the most recent archived episode with a first-round table. Do not add an episode picker or other browsing functionality.
+* The data generator should prefer the most recent archived episode with a first-round table, then fall back to an unused episode from season 40 or earlier. Do not add an episode picker or other browsing functionality.
 * The MVP should render only the first round from the generated data. Do not include Double Jeopardy, Final Jeopardy, or round navigation.
 * Used tile state only needs to live in memory for the current page session. Do not persist board state across refreshes.
 
@@ -91,8 +95,8 @@ That script opens J-Archive with Playwright from Node, follows the latest-season
 * The site is published with GitHub Pages from the root-level `index.html` file.
 * The GitHub Actions workflow at `.github/workflows/pages.yml` runs the Playwright test suite with `npm test` before deployment.
 * Deployment is gated on passing tests: the Pages artifact is packaged and deployed only after the Playwright job succeeds.
-* The workflow runs on pushes to `main`, can be run manually with `workflow_dispatch`, and runs daily at 13:00 UTC, which is 8:00 AM EST.
-* The package job refreshes `data/latest-game.json` with `npm run update:data` before uploading the Pages artifact.
+* The workflow runs on pushes to `main`, can be run manually with `workflow_dispatch`, and runs daily at 05:17 UTC.
+* The package job configures the current Pages URL, refreshes `data/latest-game.json` with `npm run update:data`, and then uploads the Pages artifact.
 * GitHub Pages should be configured to use GitHub Actions as its source.
 
 ## Gotchas

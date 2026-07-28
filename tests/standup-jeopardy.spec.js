@@ -445,6 +445,8 @@ test("generated game data is available in the repository", async () => {
   const board = JSON.parse(fs.readFileSync(dataPath, "utf8"));
 
   expect(board.episodeUrl).toMatch(/^https:\/\/www\.j-archive\.com\/showgame\.php\?game_id=\d+$/);
+  expect(board.selectionDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(["latest", "fallback"]).toContain(board.selectionMode);
   expect(board.categories).toHaveLength(6);
   expect(board.clues.length).toBeGreaterThanOrEqual(1);
   expect(board.clues.filter((clue) => clue.id === board.dailyDoubleClueId && clue.status === "available")).toHaveLength(1);
