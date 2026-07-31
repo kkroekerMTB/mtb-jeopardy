@@ -147,11 +147,12 @@ test.describe("Standup Jeopardy", () => {
     await expect(page.locator("#status")).toBeHidden();
   });
 
-  test("renders generated plain-text clues and reveals exact responses", async ({ page }) => {
+  test("shows the category with a generated plain-text clue and reveals the exact response", async ({ page }) => {
     await page.goto(appUrl);
 
     await page.getByRole("button", { name: "$200" }).first().click();
     await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByRole("dialog").getByText("SCIENCE & NATURE")).toBeVisible();
     await expect(page.getByText("A mass of cytoplasm bound by a membrane")).toBeVisible();
     await expect(page.getByRole("dialog").getByRole("link")).toHaveCount(0);
     await expect(page.getByText("a cell")).toBeHidden();
@@ -216,6 +217,7 @@ test.describe("Standup Jeopardy", () => {
     await page.getByRole("button", { name: "$200" }).nth(2).click();
 
     await expect(page.getByRole("heading", { name: "Daily Double" })).toBeVisible();
+    await expect(page.getByRole("dialog").getByText("DAILY DOUBLE-ISH")).toBeVisible();
     await expect(page.getByText("This clue is the source Daily Double")).toBeHidden();
     await expect(page.getByRole("button", { name: "Close clue" })).toBeHidden();
     await expect(page.getByRole("spinbutton", { name: "Wager" })).toHaveValue("5");
