@@ -89,7 +89,42 @@ test("score API stores and returns the exact daily_double_amount property", asyn
   assert.equal(response.status, 201);
   assert.equal(createdEntities.length, 1);
   assert.equal(createdEntities[0].daily_double_amount, -750);
+  assert.equal(createdEntities[0].question_limit, 6);
   assert.equal(payload.score.daily_double_amount, -750);
+});
+
+test("score API accepts only one through six answered questions", async (t) => {
+  const createdEntities = [];
+  const tableClient = {
+    async createEntity(entity) {
+      createdEntities.push(entity);
+    }
+  };
+  const server = createLeaderboardApp(tableClient).listen(0, "127.0.0.1");
+  t.after(() => server.close());
+  await new Promise((resolve) => server.once("listening", resolve));
+
+  const address = server.address();
+  for (const score of [
+    { correct: 0, missed: 0 },
+    { correct: 6, missed: 1 }
+  ]) {
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/scores`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        teamName: "The A Team",
+        net: 0,
+        correct: score.correct,
+        missed: score.missed,
+        daily_double_amount: 0
+      })
+    });
+
+    assert.equal(response.status, 400);
+  }
+
+  assert.equal(createdEntities.length, 0);
 });
 
 test("source episodes API returns distinct titles recorded before the requested cutoff", async (t) => {

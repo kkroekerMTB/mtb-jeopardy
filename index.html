@@ -873,6 +873,7 @@
     const TEAM_NAME_KEY = "standup-jeopardy-team-name";
     const THEME_MUSIC_ENABLED_KEY = "standup-jeopardy-theme-music-enabled";
     const GAME_DATA_URL = "data/latest-game.json";
+    const GAME_RULES_URL = "data/game-rules.json";
     const LEADERBOARD_API_URL = "https://app-mtb-jeopardy-ftdbbcefh2dqd9d0.canadaeast-01.azurewebsites.net/api/scores";
     const SUBMIT_SCORE_API_URL = LEADERBOARD_API_URL;
 
@@ -894,7 +895,10 @@
       dailyDoubleWager: 0,
       dailyDoubleScoreBeforeWager: 0,
       wagerLocked: false,
-      themeMusicRetryPending: false
+      themeMusicRetryPending: false,
+      answeredClueIds: [],
+      maxSubmittedQuestions: null,
+      gameRulesUnavailable: false
     };
 
     const els = {
@@ -949,7 +953,14 @@
       setupLeaderboard();
       try {
         setLoadingText("Loading board...");
-        const board = await loadGameData();
+        const [board] = await Promise.all([
+          loadGameData(),
+          loadGameRules().catch((error) => {
+            console.error("Couldn't load game rules", error);
+            state.gameRulesUnavailable = true;
+            updateSubmitScoreButton();
+          })
+        ]);
 
         state.board = board;
         renderBoard();
@@ -958,6 +969,22 @@
         console.error("Couldn't load latest game", error);
         showFailure();
       }
+    }
+
+    async function loadGameRules() {
+      const response = await fetch(GAME_RULES_URL, { cache: "no-store" });
+
+      if (!response.ok) {
+        throw new Error("Game rules returned status " + response.status);
+      }
+
+      const rules = await response.json();
+      if (!Number.isInteger(rules.maxSubmittedQuestions) || rules.maxSubmittedQuestions < 1) {
+        throw new Error("Game rules must define a positive integer maxSubmittedQuestions.");
+      }
+
+      state.maxSubmittedQuestions = rules.maxSubmittedQuestions;
+      updateSubmitScoreButton();
     }
 
     function setupThemeMusic() {
@@ -1128,10 +1155,30 @@
       }
 
       const availableClues = board.clues.filter((clue) => clue.status === "available");
-      const correct = availableClues.filter((clue) => clue.outcome === "correct");
-      const missed = availableClues.filter((clue) => clue.outcome === "missed");
-      const unavailable = board.clues.filter((clue) => clue.status === "unavailable").length;
-      const net = availableClues.reduce((sum, clue) => {
+      return {
+        ...summarizeClues(availableClues),
+        unavailable: board.clues.filter((clue) => clue.status === "unavailable").length
+      };
+    }
+
+    function getSubmissionScoreSummary() {
+      const maximum = state.maxSubmittedQuestions || 0;
+      const includedClues = state.answeredClueIds
+        .slice(0, maximum)
+        .map(findClue)
+        .filter(Boolean);
+
+      return {
+        ...summarizeClues(includedClues),
+        questionCount: includedClues.length,
+        excludedCount: Math.max(0, state.answeredClueIds.length - includedClues.length)
+      };
+    }
+
+    function summarizeClues(clues) {
+      const correct = clues.filter((clue) => clue.outcome === "correct");
+      const missed = clues.filter((clue) => clue.outcome === "missed");
+      const net = clues.reduce((sum, clue) => {
         if (!clue.outcome) {
           return sum;
         }
@@ -1142,13 +1189,12 @@
 
         return sum + (clue.outcome === "correct" ? clue.numericValue : -clue.numericValue);
       }, 0);
-      const dailyDouble = availableClues.find((clue) => clue.id === board.dailyDoubleClueId);
+      const dailyDouble = clues.find((clue) => clue.id === state.board.dailyDoubleClueId);
 
       return {
         correct: correct.length,
         missed: missed.length,
         net,
-        unavailable,
         dailyDoubleAmount: Number(dailyDouble && dailyDouble.dailyDoubleAmount) || 0
       };
     }
@@ -1432,6 +1478,8 @@
         clue.scoreDelta = clue.dailyDoubleAmount;
       }
 
+      state.answeredClueIds.push(clue.id);
+
       animateClueClose(() => {
         renderBoard();
         renderHeader();
@@ -1481,20 +1529,47 @@
         return;
       }
 
-      els.submitScore.disabled = state.scoreSubmitted || state.scoreSubmitting;
-      els.submitScore.textContent = state.scoreSubmitted ? "Submitted" : state.scoreSubmitting ? "Submitting..." : "Submit score";
+      const summary = getSubmissionScoreSummary();
+
+      if (state.scoreSubmitted) {
+        els.submitScore.disabled = true;
+        els.submitScore.textContent = "Submitted";
+      } else if (state.scoreSubmitting) {
+        els.submitScore.disabled = true;
+        els.submitScore.textContent = "Submitting...";
+      } else if (state.gameRulesUnavailable) {
+        els.submitScore.disabled = true;
+        els.submitScore.textContent = "Score submission unavailable";
+      } else if (!state.maxSubmittedQuestions) {
+        els.submitScore.disabled = true;
+        els.submitScore.textContent = "Loading score rules...";
+      } else if (!summary.questionCount) {
+        els.submitScore.disabled = true;
+        els.submitScore.textContent = "Answer a question to submit";
+      } else {
+        els.submitScore.disabled = false;
+        els.submitScore.textContent = "Submit score for first " + summary.questionCount + " " +
+          (summary.questionCount === 1 ? "question" : "questions");
+      }
     }
 
     function openSubmitScoreModal() {
-      if (state.scoreSubmitted || state.scoreSubmitting) {
+      const summary = getSubmissionScoreSummary();
+      if (state.scoreSubmitted || state.scoreSubmitting || !state.maxSubmittedQuestions || !summary.questionCount) {
         return;
       }
 
       const teamName = getTeamName();
-      const summary = getScoreSummary();
-      els.submitScoreSummary.textContent = `${teamName || "Unnamed team"}: ${formatCurrency(summary.net)} ` +
+      const questionLabel = "First " + summary.questionCount + " " +
+        (summary.questionCount === 1 ? "question" : "questions");
+      const excludedText = summary.excludedCount
+        ? " · " + summary.excludedCount + " later " +
+          (summary.excludedCount === 1 ? "answer is" : "answers are") + " not included."
+        : "";
+      els.submitScoreSummary.textContent = `${teamName || "Unnamed team"}: ${questionLabel}: ` +
+        `${formatCurrency(summary.net)} ` +
         `(${summary.correct} correct, ${summary.missed} missed) · DD Amount: ` +
-        formatSignedCurrency(summary.dailyDoubleAmount);
+        formatSignedCurrency(summary.dailyDoubleAmount) + excludedText;
       els.submitScoreStatus.textContent = teamName ? "" : "Enter a team name before submitting.";
       els.confirmSubmitScore.disabled = !teamName;
       els.submitScoreOverlay.hidden = false;
@@ -1517,7 +1592,8 @@
     }
 
     async function submitScore() {
-      if (state.scoreSubmitted || state.scoreSubmitting) {
+      const summary = getSubmissionScoreSummary();
+      if (state.scoreSubmitted || state.scoreSubmitting || !state.maxSubmittedQuestions || !summary.questionCount) {
         return;
       }
 
@@ -1528,7 +1604,6 @@
         return;
       }
 
-      const summary = getScoreSummary();
       state.scoreSubmitting = true;
       els.confirmSubmitScore.disabled = true;
       els.cancelSubmitScore.disabled = true;

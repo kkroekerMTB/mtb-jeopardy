@@ -63,6 +63,9 @@ Local generation uses the production source-episode API by default. Override it 
 * Undoing or changing a Correct/Missed choice is out of scope for the MVP.
 * Show a simple team tally in the header with correct count, missed count, and net Jeopardy dollar value. A Daily Double contributes its signed wager to the net value.
 * Score submissions should include a signed numeric `daily_double_amount` property. Use zero when the Daily Double was not answered.
+* Limit each submitted score to the first six answered clues in chronological order while continuing to show all answers in the gameplay tally. Load the maximum from the shared game rules configuration so it can be changed later.
+* Disable score submission until at least one clue is answered. Show the number of included questions on the submit button, cap it at the configured maximum, and identify excluded later answers in the confirmation.
+* Enforce the configured question-count range in the score API and store the active `question_limit` on each new score record.
 * The leaderboard should roll up `daily_double_amount` across the selected time window, treat legacy rows without the property as zero, and show the signed result in a `DD Amount` column after Score. Continue ranking by total Score.
 * Do not include a New Game or Reload Latest control. Browser refresh is sufficient.
 * Show the scraped episode title/date in the header when available, but do not block board rendering if that metadata is missing.

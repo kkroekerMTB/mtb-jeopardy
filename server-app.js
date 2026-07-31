@@ -1,5 +1,12 @@
 const express = require("express");
 const path = require("node:path");
+const gameRules = require("./data/game-rules.json");
+
+const MAX_SUBMITTED_QUESTIONS = gameRules.maxSubmittedQuestions;
+
+if (!Number.isInteger(MAX_SUBMITTED_QUESTIONS) || MAX_SUBMITTED_QUESTIONS < 1) {
+    throw new Error("game-rules.json must define a positive integer maxSubmittedQuestions.");
+}
 
 function parseScoreEntity(entity) {
     return {
@@ -44,7 +51,9 @@ function parseScoreSubmission(body) {
         !Number.isInteger(missed) ||
         correct < 0 ||
         missed < 0 ||
-        !Number.isInteger(dailyDoubleAmount)) {
+        !Number.isInteger(dailyDoubleAmount) ||
+        correct + missed < 1 ||
+        correct + missed > MAX_SUBMITTED_QUESTIONS) {
         return { error: "Score submission is invalid." };
     }
 
@@ -54,7 +63,8 @@ function parseScoreSubmission(body) {
         net,
         correct,
         missed,
-        daily_double_amount: dailyDoubleAmount
+        daily_double_amount: dailyDoubleAmount,
+        question_limit: MAX_SUBMITTED_QUESTIONS
     };
 
     if (sourceEpisode) {

@@ -403,7 +403,7 @@ test.describe("Standup Jeopardy", () => {
     await expect(page.locator("#leaderboardSummary")).toHaveText(/Showing 3 teams for All time/);
   });
 
-  test("opens the submit score confirmation and cancels without submitting", async ({ page }) => {
+  test("disables zero-answer submission, then opens and cancels the capped score confirmation", async ({ page }) => {
     let submissions = 0;
     await routeScoreSubmission(page, () => {
       submissions += 1;
@@ -411,17 +411,20 @@ test.describe("Standup Jeopardy", () => {
 
     await page.goto(appUrl);
     await page.getByRole("textbox", { name: /team name/i }).fill("The A Team");
+    await expect(page.getByRole("button", { name: "Answer a question to submit" })).toBeDisabled();
 
-    await page.getByRole("button", { name: "Submit score" }).click();
+    await answerTile(page, 0, "Correct");
+
+    await page.getByRole("button", { name: "Submit score for first 1 question" }).click();
     await expect(page.getByRole("dialog", { name: "Submit score" })).toBeVisible();
     await expect(page.locator("#submitScoreSummary")).toHaveText(
-      "The A Team: $0 (0 correct, 0 missed) · DD Amount: $0"
+      "The A Team: First 1 question: $200 (1 correct, 0 missed) · DD Amount: $0"
     );
 
     await page.getByRole("button", { name: "Cancel" }).click();
 
     await expect(page.getByRole("dialog", { name: "Submit score" })).toBeHidden();
-    await expect(page.getByRole("button", { name: "Submit score" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Submit score for first 1 question" })).toBeEnabled();
     expect(submissions).toBe(0);
   });
 
@@ -438,9 +441,9 @@ test.describe("Standup Jeopardy", () => {
     await page.getByRole("button", { name: "Correct" }).click();
     await expect(page.locator("#netValue")).toHaveText("$200");
 
-    await page.getByRole("button", { name: "Submit score" }).click();
+    await page.getByRole("button", { name: "Submit score for first 1 question" }).click();
     await expect(page.locator("#submitScoreSummary")).toHaveText(
-      "The A Team: $200 (1 correct, 0 missed) · DD Amount: $0"
+      "The A Team: First 1 question: $200 (1 correct, 0 missed) · DD Amount: $0"
     );
     await page.getByRole("button", { name: "Submit", exact: true }).click();
 
@@ -471,7 +474,7 @@ test.describe("Standup Jeopardy", () => {
     await page.locator("#clueCard").click();
     await page.getByRole("button", { name: "Missed" }).click();
 
-    await page.getByRole("button", { name: "Submit score" }).click();
+    await page.getByRole("button", { name: "Submit score for first 1 question" }).click();
     await expect(page.locator("#submitScoreSummary")).toContainText("DD Amount: -$600");
     await page.getByRole("button", { name: "Submit", exact: true }).click();
 
@@ -483,6 +486,59 @@ test.describe("Standup Jeopardy", () => {
       missed: 1,
       daily_double_amount: -600
     });
+  });
+
+  test("submits only the first six answers while keeping later answers in the UI totals", async ({ page }) => {
+    const submissions = [];
+    await routeScoreSubmission(page, (payload) => {
+      submissions.push(payload);
+    });
+
+    await page.goto(appUrl);
+    await page.getByRole("textbox", { name: /team name/i }).fill("The A Team");
+
+    for (const tileIndex of [0, 1, 3, 4, 6, 7]) {
+      await answerTile(page, tileIndex, "Correct");
+    }
+
+    await expect(page.getByRole("button", { name: "Submit score for first 6 questions" })).toBeEnabled();
+
+    await page.locator(".tile").nth(2).click();
+    await page.getByRole("spinbutton", { name: "Wager" }).fill("500");
+    await page.getByRole("button", { name: "Lock wager" }).click();
+    await page.locator("#clueCard").click();
+    await page.getByRole("button", { name: "Missed" }).click();
+
+    await expect(page.locator("#correctCount")).toHaveText("6");
+    await expect(page.locator("#missedCount")).toHaveText("1");
+    await expect(page.locator("#netValue")).toHaveText("$1,100");
+    await expect(page.getByRole("button", { name: "Submit score for first 6 questions" })).toBeEnabled();
+
+    await page.getByRole("button", { name: "Submit score for first 6 questions" }).click();
+    await expect(page.locator("#submitScoreSummary")).toHaveText(
+      "The A Team: First 6 questions: $1,600 (6 correct, 0 missed) · DD Amount: $0 · " +
+      "1 later answer is not included."
+    );
+    await page.getByRole("button", { name: "Submit", exact: true }).click();
+
+    expect(submissions).toHaveLength(1);
+    expect(submissions[0]).toMatchObject({
+      net: 1600,
+      correct: 6,
+      missed: 0,
+      daily_double_amount: 0
+    });
+  });
+
+  test("keeps gameplay available but disables submission when game rules cannot load", async ({ page }) => {
+    await page.route("**/data/game-rules.json", (route) => route.fulfill({ status: 500, body: "{}" }));
+    await page.goto(appUrl);
+
+    await expect(page.getByText("SCIENCE & NATURE")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Score submission unavailable" })).toBeDisabled();
+    await answerTile(page, 0, "Correct");
+    await expect(page.locator("#netValue")).toHaveText("$200");
+    await expect(page.getByRole("button", { name: "Score submission unavailable" })).toBeDisabled();
   });
 
   test("surfaces a visible load failure and logs details when local data cannot be loaded", async ({ page }) => {
@@ -584,6 +640,13 @@ async function routeScoreSubmission(page, onSubmit) {
       body: JSON.stringify({ score: payload })
     });
   });
+}
+
+async function answerTile(page, tileIndex, outcome) {
+  await page.locator(".tile").nth(tileIndex).click();
+  await page.locator("#clueCard").click();
+  await page.getByRole("button", { name: outcome, exact: true }).click();
+  await expect(page.locator("#overlay")).toBeHidden();
 }
 
 function testScores(filter) {
