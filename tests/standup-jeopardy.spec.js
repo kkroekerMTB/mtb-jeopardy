@@ -43,6 +43,99 @@ test.describe("Standup Jeopardy", () => {
     );
   });
 
+  test("plays the Daily Double sound only when the Daily Double appears", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.dailyDoublePlayCount = 0;
+      HTMLMediaElement.prototype.play = function () {
+        if (this.id === "dailyDoubleSound") {
+          window.dailyDoublePlayCount += 1;
+        }
+        return Promise.resolve();
+      };
+    });
+    await page.goto(appUrl);
+
+    const sound = page.locator("#dailyDoubleSound");
+    await expect(sound).toHaveAttribute(
+      "src",
+      "media/jeopardy-daily-double-sound-effect-from-youtube_76mCCAq.mp3"
+    );
+
+    await page.locator(".tile").first().click();
+    await expect.poll(() => page.evaluate(() => window.dailyDoublePlayCount)).toBe(0);
+    await page.locator("#closeClue").click();
+    await expect(page.locator("#overlay")).toBeHidden();
+
+    await page.locator(".tile").nth(2).click();
+    await expect.poll(() => page.evaluate(() => window.dailyDoublePlayCount)).toBe(1);
+  });
+
+  test("plays theme music by default and persists its UI setting", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.themeMusicEvents = [];
+      HTMLMediaElement.prototype.play = function () {
+        if (this.id === "themeMusic") {
+          window.themeMusicEvents.push("play");
+        }
+        return Promise.resolve();
+      };
+      HTMLMediaElement.prototype.pause = function () {
+        if (this.id === "themeMusic") {
+          window.themeMusicEvents.push("pause");
+        }
+      };
+    });
+    await page.goto(appUrl);
+
+    const setting = page.getByRole("checkbox", { name: "Theme music" });
+    await expect(setting).toBeChecked();
+    const leaderboardBox = await page.getByRole("button", { name: "Leaderboard" }).boundingBox();
+    const musicSettingBox = await setting.locator("..").boundingBox();
+    expect(musicSettingBox.y).toBeCloseTo(leaderboardBox.y, 0);
+    await expect(page.locator("#themeMusic")).toHaveAttribute("src", "media/Jeopardy-theme-song.mp3");
+    await expect.poll(() => page.evaluate(() => window.themeMusicEvents)).toEqual(["play"]);
+    await expect.poll(() => page.evaluate(() =>
+      localStorage.getItem("standup-jeopardy-theme-music-enabled")
+    )).toBe("true");
+
+    await setting.uncheck();
+    await expect.poll(() => page.evaluate(() => window.themeMusicEvents)).toEqual(["play", "pause"]);
+    await expect.poll(() => page.evaluate(() =>
+      localStorage.getItem("standup-jeopardy-theme-music-enabled")
+    )).toBe("false");
+
+    await page.reload();
+    await expect(setting).not.toBeChecked();
+    await expect.poll(() => page.evaluate(() => window.themeMusicEvents)).toEqual([]);
+
+    await setting.check();
+    await expect.poll(() => page.evaluate(() => window.themeMusicEvents)).toEqual(["play"]);
+    await expect.poll(() => page.evaluate(() =>
+      localStorage.getItem("standup-jeopardy-theme-music-enabled")
+    )).toBe("true");
+  });
+
+  test("retries default theme music after the browser blocks autoplay", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.themeMusicPlayCount = 0;
+      HTMLMediaElement.prototype.play = function () {
+        if (this.id !== "themeMusic") {
+          return Promise.resolve();
+        }
+
+        window.themeMusicPlayCount += 1;
+        return window.themeMusicPlayCount === 1
+          ? Promise.reject(new DOMException("Autoplay blocked", "NotAllowedError"))
+          : Promise.resolve();
+      };
+    });
+    await page.goto(appUrl);
+
+    await expect.poll(() => page.evaluate(() => window.themeMusicPlayCount)).toBe(1);
+    await page.getByRole("heading", { name: "Standup Jeopardy" }).click();
+    await expect.poll(() => page.evaluate(() => window.themeMusicPlayCount)).toBe(2);
+  });
+
   test("shows a loading state while fetching local data and then hides it after the board renders", async ({ page }) => {
     await routeGameData(page, { delayMs: 500 });
 

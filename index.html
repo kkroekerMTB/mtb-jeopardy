@@ -118,6 +118,30 @@
       color: #8f99c4;
     }
 
+    .music-setting {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 38px;
+      margin-top: 26px;
+      padding: 8px 12px;
+      border: 1px solid #333b66;
+      border-radius: 8px;
+      background: var(--panel-soft);
+      color: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .music-setting input {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      accent-color: var(--jeopardy-gold);
+      cursor: pointer;
+    }
+
     .toolbar-button,
     .filter-button {
       margin-top: 26px;
@@ -735,6 +759,10 @@
             <input id="teamName" name="teamName" type="text" placeholder="Enter team name" />
           </div>
           <button id="openLeaderboard" class="toolbar-button" type="button">Leaderboard</button>
+          <label class="music-setting" for="themeMusicEnabled">
+            <input id="themeMusicEnabled" name="themeMusicEnabled" type="checkbox" />
+            Theme music
+          </label>
         </div>
       </div>
       <div class="score-panel">
@@ -834,8 +862,16 @@
     </article>
   </section>
 
+  <audio
+    id="dailyDoubleSound"
+    src="media/jeopardy-daily-double-sound-effect-from-youtube_76mCCAq.mp3"
+    preload="auto"
+  ></audio>
+  <audio id="themeMusic" src="media/Jeopardy-theme-song.mp3" preload="auto"></audio>
+
   <script>
     const TEAM_NAME_KEY = "standup-jeopardy-team-name";
+    const THEME_MUSIC_ENABLED_KEY = "standup-jeopardy-theme-music-enabled";
     const GAME_DATA_URL = "data/latest-game.json";
     const LEADERBOARD_API_URL = "https://app-mtb-jeopardy-ftdbbcefh2dqd9d0.canadaeast-01.azurewebsites.net/api/scores";
     const SUBMIT_SCORE_API_URL = LEADERBOARD_API_URL;
@@ -857,7 +893,8 @@
       scoreSubmitting: false,
       dailyDoubleWager: 0,
       dailyDoubleScoreBeforeWager: 0,
-      wagerLocked: false
+      wagerLocked: false,
+      themeMusicRetryPending: false
     };
 
     const els = {
@@ -877,6 +914,8 @@
       cancelSubmitScore: document.getElementById("cancelSubmitScore"),
       confirmSubmitScore: document.getElementById("confirmSubmitScore"),
       teamNameInput: document.getElementById("teamName"),
+      themeMusicEnabled: document.getElementById("themeMusicEnabled"),
+      themeMusic: document.getElementById("themeMusic"),
       openLeaderboard: document.getElementById("openLeaderboard"),
       leaderboardOverlay: document.getElementById("leaderboardOverlay"),
       leaderboardFilters: document.getElementById("leaderboardFilters"),
@@ -884,6 +923,7 @@
       leaderboardBody: document.getElementById("leaderboardBody"),
       leaderboardEmpty: document.getElementById("leaderboardEmpty"),
       closeLeaderboard: document.getElementById("closeLeaderboard"),
+      dailyDoubleSound: document.getElementById("dailyDoubleSound"),
       overlay: document.getElementById("overlay"),
       clueCard: document.getElementById("clueCard"),
       closeClue: document.getElementById("closeClue"),
@@ -905,6 +945,7 @@
 
     async function init() {
       loadTeamName();
+      setupThemeMusic();
       setupLeaderboard();
       try {
         setLoadingText("Loading board...");
@@ -917,6 +958,64 @@
         console.error("Couldn't load latest game", error);
         showFailure();
       }
+    }
+
+    function setupThemeMusic() {
+      const enabled = localStorage.getItem(THEME_MUSIC_ENABLED_KEY) !== "false";
+      els.themeMusicEnabled.checked = enabled;
+      localStorage.setItem(THEME_MUSIC_ENABLED_KEY, String(enabled));
+      els.themeMusicEnabled.addEventListener("change", updateThemeMusicSetting);
+
+      if (enabled) {
+        playThemeMusic();
+      }
+    }
+
+    function updateThemeMusicSetting() {
+      const enabled = els.themeMusicEnabled.checked;
+      localStorage.setItem(THEME_MUSIC_ENABLED_KEY, String(enabled));
+
+      if (enabled) {
+        playThemeMusic();
+        return;
+      }
+
+      clearThemeMusicRetry();
+      els.themeMusic.pause();
+      els.themeMusic.currentTime = 0;
+    }
+
+    function playThemeMusic() {
+      els.themeMusic.currentTime = 0;
+      const playback = els.themeMusic.play();
+
+      if (playback && typeof playback.catch === "function") {
+        playback.catch(scheduleThemeMusicRetry);
+      }
+    }
+
+    function scheduleThemeMusicRetry() {
+      if (state.themeMusicRetryPending || !els.themeMusicEnabled.checked) {
+        return;
+      }
+
+      state.themeMusicRetryPending = true;
+      window.addEventListener("click", retryThemeMusic, { once: true });
+      window.addEventListener("keydown", retryThemeMusic, { once: true });
+    }
+
+    function retryThemeMusic() {
+      clearThemeMusicRetry();
+
+      if (els.themeMusicEnabled.checked) {
+        playThemeMusic();
+      }
+    }
+
+    function clearThemeMusicRetry() {
+      state.themeMusicRetryPending = false;
+      window.removeEventListener("click", retryThemeMusic);
+      window.removeEventListener("keydown", retryThemeMusic);
     }
 
     async function loadGameData() {
@@ -1078,12 +1177,24 @@
 
       if (isDailyDouble) {
         prepareDailyDoubleWager();
+        playDailyDoubleSound();
       }
 
       els.overlay.hidden = false;
       els.overlay.classList.add("active");
       document.body.classList.add("overlay-open");
       animateClueOpen(isDailyDouble);
+    }
+
+    function playDailyDoubleSound() {
+      els.dailyDoubleSound.currentTime = 0;
+      const playback = els.dailyDoubleSound.play();
+
+      if (playback && typeof playback.catch === "function") {
+        playback.catch((error) => {
+          console.warn("Couldn't play the Daily Double sound", error);
+        });
+      }
     }
 
     function prepareDailyDoubleWager() {

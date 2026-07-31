@@ -40,6 +40,7 @@ Local generation uses the production source-episode API by default. Override it 
 * I want a static HTML website which fetches the relevant Jeopardy data for the most recent episode, formats it as JSON, and renders the the retrieved questions and answers in the classic Jeopardy grid.
 * The color scheme must match what is displayed on the Jeopardy TV show for the contestants; it does not have to match the source website.
 * The visible app title should be generic, such as `Standup Jeopardy`. Do not use official Jeopardy logos or imply affiliation.
+* Play the theme song once when the app loads. Show an on-by-default Theme music setting and persist its value in local storage.
 * Selecting a dollar-value tile should open a full-screen clue view showing only the clue text. Clicking the clue view should reveal the correct response.
 * Opening a clue should use a smooth transition that expands from the clicked tile into the full-screen clue view. Closing the clue view should use a matching reverse transition back toward the clicked tile.
 * Revealing the correct response should fade the response into view smoothly.
@@ -50,6 +51,7 @@ Local generation uses the production source-episode API by default. Override it 
 * Do not visually distinguish the Daily Double tile before it is selected. Because the source does not assign it an ordinary clue value, show the value inferred from the other clues in its row as display text only.
 * If the source Daily Double is unavailable, missing, or ambiguous, choose a playable fallback deterministically from the episode URL and eligible clue IDs. Repeated generation of the same episode must produce the same fallback.
 * Opening the Daily Double should expand it from the selected tile into a red full-screen card while it rotates forward five times over approximately 1.2 seconds. Under reduced-motion preferences, use a short fade/scale entrance without rotation.
+* Play the Daily Double sound effect when the Daily Double card appears.
 * Keep the Daily Double clue hidden until the team locks a whole-dollar wager. Show the current score and wager range while wagering.
 * A Daily Double wager must be between $5 and the greater of the current score or $1,000. Default to the current score when it is at least $5; otherwise default to $5.
 * Hide the close control for a Daily Double and require the team to mark it Correct or Missed. Once locked, show the wager in place of the clue value. Identify an all-in positive-score wager as a True Daily Double.
