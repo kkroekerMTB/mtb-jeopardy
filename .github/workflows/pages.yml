@@ -72,10 +72,7 @@ jobs:
           CURRENT_GAME_DATA_URL: ${{ steps.pages.outputs.base_url }}/data/latest-game.json
 
       - name: Build static artifact
-        run: |
-          mkdir _site
-          cp index.html _site/index.html
-          cp -r data _site/data
+        run: npm run build:site
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
