@@ -170,8 +170,10 @@ test.describe("Standup Jeopardy", () => {
     await firstTile.click();
 
     await expect(page.locator("#overlay")).toHaveClass(/animating/);
+    await expect(page.locator("#closeClue")).toBeDisabled();
     await expect.poll(async () => page.locator("#clueCard").evaluate((el) => el.style.transform)).toContain("scale");
     await expect(page.locator("#overlay")).not.toHaveClass(/animating/);
+    await expect(page.locator("#closeClue")).toBeEnabled();
 
     await page.locator("#closeClue").click();
 

@@ -1315,6 +1315,7 @@
       const geometry = getClueTransitionGeometry(sourceRect);
 
       state.isTransitioning = true;
+      els.closeClue.disabled = true;
       els.overlay.classList.add("animating");
       els.clueCard.style.transform = getClueTransitionTransform(geometry);
 
@@ -1330,6 +1331,7 @@
         els.overlay.style.background = "";
         els.clueCard.style.transform = "";
         state.isTransitioning = false;
+        els.closeClue.disabled = false;
       }, 300);
     }
 
@@ -1457,6 +1459,7 @@
       state.revealed = false;
       state.selectedTileRect = null;
       state.isTransitioning = false;
+      els.closeClue.disabled = false;
       els.overlay.classList.remove("animating", "closing");
       els.overlay.classList.remove("daily-double-entering", "reduced-motion-entering");
       els.overlay.style.background = "";
