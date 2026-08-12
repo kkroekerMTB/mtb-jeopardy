@@ -1,3 +1,7 @@
+const { initializeServerTelemetry } = require("./server-telemetry");
+
+initializeServerTelemetry();
+
 const { TableClient } = require('@azure/data-tables');
 const { createLeaderboardApp } = require('./server-app');
 

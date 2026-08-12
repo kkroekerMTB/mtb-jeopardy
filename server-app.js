@@ -152,7 +152,10 @@ function createLeaderboardApp(client) {
     app.use("/api", (req, res, next) => {
         res.set("Access-Control-Allow-Origin", "*");
         res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-        res.set("Access-Control-Allow-Headers", "Content-Type");
+        res.set(
+            "Access-Control-Allow-Headers",
+            "Content-Type, traceparent, tracestate, Request-Id, Request-Context"
+        );
 
         if (req.method === "OPTIONS") {
             return res.sendStatus(204);

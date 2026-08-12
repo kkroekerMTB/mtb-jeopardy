@@ -90,7 +90,7 @@ Local generation uses the production source-episode API by default. Override it 
 * The static entrypoint should be a root-level `index.html` file.
 * The browser should read `data/latest-game.json` from the same origin as the page. It should not make runtime requests to J-Archive or public CORS proxies.
 * Do not embed sample episode payloads in the static page.
-* Do not depend on external libraries, fonts, scripts, stylesheets, or other CDN resources. Use plain HTML, CSS, and JavaScript browser APIs only.
+* Do not load libraries, fonts, scripts, stylesheets, or other assets from external CDNs. Keep the gameplay UI in plain HTML, CSS, and JavaScript; the Application Insights browser SDK is the only third-party runtime library and must be self-hosted in the Pages artifact.
 * The data generator should prefer the most recent archived episode with a first-round table, then fall back to an unused episode from season 40 or earlier. Do not add an episode picker or other browsing functionality.
 * The MVP should render only the first round from the generated data. Do not include Double Jeopardy, Final Jeopardy, or round navigation.
 * Used tile state only needs to live in memory for the current page session. Do not persist board state across refreshes.
@@ -103,6 +103,23 @@ Local generation uses the production source-episode API by default. Override it 
 * The workflow runs on pushes to `main`, can be run manually with `workflow_dispatch`, and runs daily at 05:17 UTC.
 * The package job configures the current Pages URL, refreshes `data/latest-game.json` with `npm run update:data`, and then uploads the Pages artifact.
 * GitHub Pages should be configured to use GitHub Actions as its source.
+
+## Application Insights telemetry
+
+Telemetry is disabled when its connection string is not configured. To enable both sides of the app:
+
+* Set the Azure App Service application setting `APPLICATIONINSIGHTS_CONNECTION_STRING` to the backend Application Insights connection string. The server uses the Azure Monitor OpenTelemetry distro and reports HTTP requests, Azure SDK dependencies, failures, and runtime metrics with the default service name `mtb-jeopardy-api`. Set `OTEL_SERVICE_NAME` to override that name.
+* Add a GitHub Actions repository variable named `APPLICATIONINSIGHTS_WEB_CONNECTION_STRING` for the Pages deployment. The build writes this value into the public static artifact and self-hosts the Application Insights browser SDK. Application Insights browser connection strings identify the ingestion resource and are expected to be visible to browsers; they are not secrets.
+
+The browser reports page views, fetch dependencies, uncaught errors, handled loading/submission failures, and the `board_loaded`, `clue_answered`, and `score_submitted` events under the `mtb-jeopardy-web` cloud role. Custom events omit the team name, clue text, and response text.
+
+The frontend and backend can report to the same Application Insights resource because their role names distinguish them. If App Service codeless Application Insights monitoring is already enabled, disable it before using the code-based backend instrumentation to avoid competing instrumentation paths.
+
+For a configured local static build, run:
+
+```sh
+APPLICATIONINSIGHTS_WEB_CONNECTION_STRING='InstrumentationKey=...' npm run build:site
+```
 
 ## Gotchas
 

@@ -8,13 +8,15 @@
   "scripts": {
     "build:site": "node scripts/build-site.js",
     "update:data": "node scripts/update-latest-game.js",
-    "test": "node --test tests/server.test.js tests/build-site.test.js && playwright test"
+    "test": "node --test tests/server.test.js tests/build-site.test.js tests/telemetry.test.js && playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0"
   },
   "dependencies": {
     "@azure/data-tables": "^13.3.2",
+    "@azure/monitor-opentelemetry": "^1.19.0",
+    "@microsoft/applicationinsights-web": "^3.4.3",
     "express": "^5.2.1"
   }
 }

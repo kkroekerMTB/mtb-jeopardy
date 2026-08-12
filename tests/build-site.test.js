@@ -23,3 +23,27 @@ test("Pages artifact contains every local media file referenced by index.html", 
     );
   }
 });
+
+test("Pages artifact configures and self-hosts browser telemetry", async (t) => {
+  const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mtb-jeopardy-site-"));
+  const outputDirectory = path.join(temporaryRoot, "_site");
+  t.after(() => fs.rm(temporaryRoot, { recursive: true, force: true }));
+
+  await buildSite(outputDirectory, {
+    browserTelemetryConnectionString: "InstrumentationKey=test-key"
+  });
+
+  const html = await fs.readFile(path.join(outputDirectory, "index.html"), "utf8");
+  const telemetryConfig = await fs.readFile(
+    path.join(outputDirectory, "telemetry-config.js"),
+    "utf8"
+  );
+
+  assert.match(html, /src="assets\/applicationinsights-web\.min\.js"/);
+  assert.doesNotMatch(html, /node_modules/);
+  assert.match(telemetryConfig, /InstrumentationKey=test-key/);
+  await assert.doesNotReject(
+    fs.access(path.join(outputDirectory, "assets", "applicationinsights-web.min.js"))
+  );
+  await assert.doesNotReject(fs.access(path.join(outputDirectory, "telemetry.js")));
+});

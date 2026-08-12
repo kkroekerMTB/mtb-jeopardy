@@ -6,6 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
   <title>Standup Jeopardy</title>
+  <script src="telemetry-config.js"></script>
+  <script src="node_modules/@microsoft/applicationinsights-web/browser/es5/ai.3.gbl.min.js"></script>
+  <script src="telemetry.js"></script>
   <style>
     :root {
       --board-blue: #071f8f;
@@ -968,6 +971,7 @@
           loadGameData(),
           loadGameRules().catch((error) => {
             console.error("Couldn't load game rules", error);
+            trackTelemetryException(error, { operation: "game_rules_load" });
             state.gameRulesUnavailable = true;
             updateSubmitScoreButton();
           })
@@ -976,8 +980,16 @@
         state.board = board;
         renderBoard();
         renderHeader();
+        const unavailableClues = board.clues.filter((clue) => clue.status === "unavailable").length;
+        trackTelemetryEvent("board_loaded", {
+          episode: board.episodeTitle || "Unknown episode"
+        }, {
+          availableClues: board.clues.length - unavailableClues,
+          unavailableClues
+        });
       } catch (error) {
         console.error("Couldn't load latest game", error);
+        trackTelemetryException(error, { operation: "board_load" });
         showFailure();
       }
     }
@@ -1189,17 +1201,7 @@
     function summarizeClues(clues) {
       const correct = clues.filter((clue) => clue.outcome === "correct");
       const missed = clues.filter((clue) => clue.outcome === "missed");
-      const net = clues.reduce((sum, clue) => {
-        if (!clue.outcome) {
-          return sum;
-        }
-
-        if (Number.isFinite(clue.scoreDelta)) {
-          return sum + clue.scoreDelta;
-        }
-
-        return sum + (clue.outcome === "correct" ? clue.numericValue : -clue.numericValue);
-      }, 0);
+      const net = clues.reduce((sum, clue) => sum + getClueScoreDelta(clue), 0);
       const dailyDouble = clues.find((clue) => clue.id === state.board.dailyDoubleClueId);
 
       return {
@@ -1208,6 +1210,18 @@
         net,
         dailyDoubleAmount: Number(dailyDouble && dailyDouble.dailyDoubleAmount) || 0
       };
+    }
+
+    function getClueScoreDelta(clue) {
+      if (!clue.outcome) {
+        return 0;
+      }
+
+      if (Number.isFinite(clue.scoreDelta)) {
+        return clue.scoreDelta;
+      }
+
+      return clue.outcome === "correct" ? clue.numericValue : -clue.numericValue;
     }
 
     function openClue(clueId, sourceTile) {
@@ -1495,6 +1509,14 @@
       }
 
       state.answeredClueIds.push(clue.id);
+      const isDailyDouble = clue.id === state.board.dailyDoubleClueId;
+      trackTelemetryEvent("clue_answered", {
+        outcome,
+        dailyDouble: String(isDailyDouble)
+      }, {
+        scoreDelta: getClueScoreDelta(clue),
+        answeredClues: state.answeredClueIds.length
+      });
 
       animateClueClose(() => {
         renderBoard();
@@ -1517,6 +1539,14 @@
       }
 
       return formatCurrency(value);
+    }
+
+    function trackTelemetryEvent(name, properties = {}, measurements = {}) {
+      window.jeopardyTelemetry?.trackEvent(name, properties, measurements);
+    }
+
+    function trackTelemetryException(error, properties = {}) {
+      window.jeopardyTelemetry?.trackException(error, properties);
     }
 
     function setLoadingText(text) {
@@ -1638,6 +1668,7 @@
         });
       } catch (error) {
         console.error(error);
+        trackTelemetryException(error, { operation: "score_submission" });
         state.scoreSubmitting = false;
         els.confirmSubmitScore.disabled = false;
         els.cancelSubmitScore.disabled = false;
@@ -1646,6 +1677,13 @@
         return;
       }
 
+      trackTelemetryEvent("score_submitted", {}, {
+        net: summary.net,
+        correct: summary.correct,
+        missed: summary.missed,
+        dailyDoubleAmount: summary.dailyDoubleAmount,
+        questionCount: summary.questionCount
+      });
       state.scoreSubmitting = false;
       state.scoreSubmitted = true;
       els.cancelSubmitScore.disabled = false;

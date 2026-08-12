@@ -185,3 +185,25 @@ test("source episodes API rejects an invalid cutoff without querying storage", a
   assert.equal(futureResponse.status, 400);
   assert.equal(queried, false);
 });
+
+test("leaderboard API permits Application Insights distributed tracing headers", async (t) => {
+  const server = createLeaderboardApp({}).listen(0, "127.0.0.1");
+  t.after(() => server.close());
+  await new Promise((resolve) => server.once("listening", resolve));
+
+  const address = server.address();
+  const response = await fetch(`http://127.0.0.1:${address.port}/api/scores`, {
+    method: "OPTIONS",
+    headers: {
+      Origin: "https://example.test",
+      "Access-Control-Request-Method": "POST",
+      "Access-Control-Request-Headers": "content-type,traceparent,tracestate,request-id,request-context"
+    }
+  });
+
+  assert.equal(response.status, 204);
+  const allowedHeaders = response.headers.get("access-control-allow-headers").toLowerCase();
+  for (const header of ["content-type", "traceparent", "tracestate", "request-id", "request-context"]) {
+    assert.match(allowedHeaders, new RegExp(`(?:^|,\\s*)${header}(?:,|$)`));
+  }
+});

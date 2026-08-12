@@ -1,0 +1,1 @@
+window.jeopardyTelemetryConfig = { connectionString: "" };

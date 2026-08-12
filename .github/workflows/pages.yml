@@ -73,6 +73,8 @@ jobs:
 
       - name: Build static artifact
         run: npm run build:site
+        env:
+          APPLICATIONINSIGHTS_WEB_CONNECTION_STRING: ${{ vars.APPLICATIONINSIGHTS_WEB_CONNECTION_STRING }}
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

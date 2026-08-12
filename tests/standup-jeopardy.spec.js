@@ -29,6 +29,39 @@ test.describe("Standup Jeopardy", () => {
     await expect(page.getByRole("button", { name: "$1,234" })).toBeVisible();
   });
 
+  test("reports board loading and answered clues without team-identifying data", async ({ page }) => {
+    await installTelemetrySpy(page);
+    await page.goto(appUrl);
+
+    await expect.poll(() => page.evaluate(() => window.telemetryEvents)).toContainEqual({
+      name: "board_loaded",
+      properties: {
+        episode: "Show #9999 - Monday, June 1, 2026"
+      },
+      measurements: {
+        availableClues: 23,
+        unavailableClues: 7
+      }
+    });
+
+    await page.getByRole("button", { name: "$200" }).first().click();
+    await page.locator("#clueCard").click();
+    await page.getByRole("button", { name: "Correct" }).click();
+
+    await expect.poll(() => page.evaluate(() => window.telemetryEvents)).toContainEqual({
+      name: "clue_answered",
+      properties: {
+        outcome: "correct",
+        dailyDouble: "false"
+      },
+      measurements: {
+        scoreDelta: 200,
+        answeredClues: 1
+      }
+    });
+    expect(await page.evaluate(() => JSON.stringify(window.telemetryEvents))).not.toContain("teamName");
+  });
+
   test("does not visually reveal the Daily Double tile before it is selected", async ({ page }) => {
     await page.goto(appUrl);
 
@@ -434,6 +467,7 @@ test.describe("Standup Jeopardy", () => {
 
   test("submits the current score once and disables resubmission", async ({ page }) => {
     const submissions = [];
+    await installTelemetrySpy(page);
     await routeScoreSubmission(page, (payload) => {
       submissions.push(payload);
     });
@@ -461,6 +495,17 @@ test.describe("Standup Jeopardy", () => {
       daily_double_amount: 0,
       sourceEpisode: "Show #9999 - Monday, June 1, 2026",
       sourceUrl: latestGameUrl
+    });
+    await expect.poll(() => page.evaluate(() => window.telemetryEvents)).toContainEqual({
+      name: "score_submitted",
+      properties: {},
+      measurements: {
+        net: 200,
+        correct: 1,
+        missed: 0,
+        dailyDoubleAmount: 0,
+        questionCount: 1
+      }
     });
   });
 
@@ -560,6 +605,18 @@ test.describe("Standup Jeopardy", () => {
     await expect.poll(() => errors.some((message) => message.includes("Couldn't load latest game"))).toBe(true);
   });
 
+  test("reports handled board-loading failures", async ({ page }) => {
+    await installTelemetrySpy(page);
+    await routeGameData(page, { status: 500, body: "{}" });
+
+    await page.goto(appUrl);
+
+    await expect.poll(() => page.evaluate(() => window.telemetryExceptions)).toContainEqual({
+      message: "Game data returned status 500",
+      properties: { operation: "board_load" }
+    });
+  });
+
   test("rejects generated data without one playable Daily Double", async ({ page }) => {
     const board = testBoard();
     delete board.dailyDoubleClueId;
@@ -580,10 +637,16 @@ test.describe("Standup Jeopardy", () => {
   });
 });
 
-test("static file loads only local generated data and stays dependency-free", async () => {
+test("static file loads only local generated data and self-hosted dependencies", async () => {
   const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 
-  expect(html).not.toMatch(/<script\s+[^>]*src=/i);
+  const scriptSources = Array.from(html.matchAll(/<script\s+[^>]*src="([^"]+)"/gi), (match) => match[1]);
+  expect(scriptSources).toEqual([
+    "telemetry-config.js",
+    "node_modules/@microsoft/applicationinsights-web/browser/es5/ai.3.gbl.min.js",
+    "telemetry.js"
+  ]);
+  expect(scriptSources.every((source) => !/^https?:/i.test(source))).toBe(true);
   expect(html).not.toMatch(/<link\s+[^>]*rel=["']?stylesheet/i);
   expect(html).not.toMatch(/<img\b/i);
   expect(html).not.toContain("sample");
@@ -618,6 +681,32 @@ async function routeGameData(page, options = {}) {
       body: options.body || JSON.stringify(testBoard())
     });
   });
+}
+
+async function installTelemetrySpy(page) {
+  await page.route("**/telemetry-config.js", (route) => route.fulfill({
+    contentType: "application/javascript",
+    body: 'window.jeopardyTelemetryConfig = { connectionString: "InstrumentationKey=test-key" };'
+  }));
+  await page.route("**/ai.3.gbl.min.js", (route) => route.fulfill({
+    contentType: "application/javascript",
+    body: `
+      window.telemetryEvents = [];
+      window.telemetryExceptions = [];
+      window.Microsoft = { ApplicationInsights: { ApplicationInsights: class {
+        addTelemetryInitializer() {}
+        loadAppInsights() {}
+        trackPageView() {}
+        trackEvent(event) { window.telemetryEvents.push(event); }
+        trackException(details) {
+          window.telemetryExceptions.push({
+            message: details.exception.message,
+            properties: details.properties
+          });
+        }
+      } } };
+    `
+  }));
 }
 
 async function routeLeaderboardScores(page) {
