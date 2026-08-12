@@ -1853,6 +1853,11 @@
 
     els.closeClue.addEventListener("click", () => {
       if (!state.isTransitioning) {
+        if (!state.revealed) {
+          trackTelemetryEvent("clue_abandoned");
+        } else {
+          trackTelemetryEvent("clue_cheated");
+        }
         animateClueClose();
       }
     });

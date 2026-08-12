@@ -366,6 +366,35 @@ test.describe("Standup Jeopardy", () => {
     await expect(tile).not.toHaveClass(/used/);
   });
 
+  test("reports an abandoned clue when it is closed before the response is viewed", async ({ page }) => {
+    await installTelemetrySpy(page);
+    await page.goto(appUrl);
+
+    await page.getByRole("button", { name: "$600" }).first().click();
+    await page.locator("#closeClue").click();
+
+    await expect.poll(() => page.evaluate(() => window.telemetryEvents)).toContainEqual({
+      name: "clue_abandoned",
+      properties: {},
+      measurements: {}
+    });
+  });
+
+  test("reports cheating when a clue is closed after the response is viewed", async ({ page }) => {
+    await installTelemetrySpy(page);
+    await page.goto(appUrl);
+
+    await page.getByRole("button", { name: "$600" }).first().click();
+    await page.locator("#clueCard").click();
+    await page.locator("#closeClue").click();
+
+    await expect.poll(() => page.evaluate(() => window.telemetryEvents)).toContainEqual({
+      name: "clue_cheated",
+      properties: {},
+      measurements: {}
+    });
+  });
+
   test("disables unavailable clues without adding them to scoring", async ({ page }) => {
     await page.goto(appUrl);
 
