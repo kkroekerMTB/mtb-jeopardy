@@ -1853,10 +1853,12 @@
 
     els.closeClue.addEventListener("click", () => {
       if (!state.isTransitioning) {
+        const teamName = getTeamName();
+        const properties = teamName ? { teamName } : {};
         if (!state.revealed) {
-          trackTelemetryEvent("clue_abandoned");
+          trackTelemetryEvent("clue_abandoned", properties);
         } else {
-          trackTelemetryEvent("clue_cheated");
+          trackTelemetryEvent("clue_cheated", properties);
         }
         animateClueClose();
       }

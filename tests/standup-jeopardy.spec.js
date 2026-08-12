@@ -370,12 +370,15 @@ test.describe("Standup Jeopardy", () => {
     await installTelemetrySpy(page);
     await page.goto(appUrl);
 
+    await page.getByRole("textbox", { name: /team name/i }).fill("The A Team");
     await page.getByRole("button", { name: "$600" }).first().click();
     await page.locator("#closeClue").click();
 
     await expect.poll(() => page.evaluate(() => window.telemetryEvents)).toContainEqual({
       name: "clue_abandoned",
-      properties: {},
+      properties: {
+        teamName: "The A Team"
+      },
       measurements: {}
     });
   });
@@ -384,10 +387,36 @@ test.describe("Standup Jeopardy", () => {
     await installTelemetrySpy(page);
     await page.goto(appUrl);
 
+    await page.getByRole("textbox", { name: /team name/i }).fill("The A Team");
     await page.getByRole("button", { name: "$600" }).first().click();
     await page.locator("#clueCard").click();
     await page.locator("#closeClue").click();
 
+    await expect.poll(() => page.evaluate(() => window.telemetryEvents)).toContainEqual({
+      name: "clue_cheated",
+      properties: {
+        teamName: "The A Team"
+      },
+      measurements: {}
+    });
+  });
+
+  test("omits the team name from abandoned and cheated clues when it is not configured", async ({ page }) => {
+    await installTelemetrySpy(page);
+    await page.goto(appUrl);
+
+    const tile = page.getByRole("button", { name: "$600" }).first();
+    await tile.click();
+    await page.locator("#closeClue").click();
+    await tile.click();
+    await page.locator("#clueCard").click();
+    await page.locator("#closeClue").click();
+
+    await expect.poll(() => page.evaluate(() => window.telemetryEvents)).toContainEqual({
+      name: "clue_abandoned",
+      properties: {},
+      measurements: {}
+    });
     await expect.poll(() => page.evaluate(() => window.telemetryEvents)).toContainEqual({
       name: "clue_cheated",
       properties: {},
