@@ -45,8 +45,11 @@ test.describe("Standup Jeopardy", () => {
     });
 
     await page.getByRole("button", { name: "$200" }).first().click();
+    await expect(page.locator("#closeClue")).toBeEnabled();
+    const correctButton = page.getByRole("button", { name: "Correct" });
     await page.locator("#clueCard").click();
-    await page.getByRole("button", { name: "Correct" }).click();
+    await expect(correctButton).toBeVisible();
+    await correctButton.click();
 
     await expect.poll(() => page.evaluate(() => window.telemetryEvents)).toContainEqual({
       name: "clue_answered",
