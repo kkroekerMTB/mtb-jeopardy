@@ -1,6 +1,39 @@
 const { test, expect } = require("@playwright/test");
 const { parseEpisodeInPage, finalizeBoard } = require("../scripts/game-data");
 
+test("parses normalized category comments separately from category titles", async ({ page }) => {
+  await page.setContent(`
+    <table class="round">
+      <tr>
+        <td class="category">
+          <table><tr><td class="category_name">SPELL THAT NAME</td></tr>
+          <tr><td class="category_comments">(Alex: The dreaded spelling category!)</td></tr></table>
+        </td>
+        <td class="category"><div class="category_name">NO COMMENT</div></td>
+      </tr>
+      <tr>
+        <td class="clue"><table><tr><td class="clue_value">$200</td></tr>
+          <tr><td class="clue_text">First clue</td></tr></table>
+          <em class="correct_response">first response</em></td>
+        <td class="clue"><table><tr><td class="clue_value">$200</td></tr>
+          <tr><td class="clue_text">Second clue</td></tr></table>
+          <em class="correct_response">second response</em></td>
+      </tr>
+    </table>
+  `);
+
+  const board = await page.evaluate(parseEpisodeInPage, "https://example.test/showgame.php?game_id=9999");
+
+  expect(board.categories).toEqual([
+    {
+      id: "category-0",
+      title: "SPELL THAT NAME",
+      comment: "(Alex: The dreaded spelling category!)"
+    },
+    { id: "category-1", title: "NO COMMENT", comment: "" }
+  ]);
+});
+
 test("parses a source Daily Double without treating its missing assigned value as unavailable", async ({ page }) => {
   await page.setContent(`
     <div id="game_title">Show #9999</div>

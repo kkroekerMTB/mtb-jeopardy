@@ -639,6 +639,14 @@
       text-transform: uppercase;
     }
 
+    .category-comment {
+      margin: -12px 0 0;
+      color: #dbe5ff;
+      font-size: clamp(18px, 2vw, 28px);
+      font-style: italic;
+      line-height: 1.25;
+    }
+
     .true-daily-double {
       margin-bottom: 10px;
       color: #fff;
@@ -851,6 +859,7 @@
     <article id="clueCard" class="clue-card">
       <button id="closeClue" class="close-button" type="button" aria-label="Close clue">&times;</button>
       <p id="overlayCategory" class="clue-category"></p>
+      <p id="overlayCategoryComment" class="category-comment" hidden></p>
       <section id="wagerPanel" class="wager-panel" hidden>
         <h2>Daily Double</h2>
         <p id="wagerCurrentScore" class="wager-guidance"></p>
@@ -953,6 +962,7 @@
       trueDailyDouble: document.getElementById("trueDailyDouble"),
       overlayValue: document.getElementById("overlayValue"),
       overlayCategory: document.getElementById("overlayCategory"),
+      overlayCategoryComment: document.getElementById("overlayCategoryComment"),
       overlayClue: document.getElementById("overlayClue"),
       overlayResponse: document.getElementById("overlayResponse"),
       markCorrect: document.getElementById("markCorrect"),
@@ -1244,6 +1254,8 @@
       els.trueDailyDouble.hidden = true;
       els.overlayValue.textContent = clue.value;
       els.overlayCategory.textContent = category ? category.title : "Category";
+      els.overlayCategoryComment.textContent = category && category.comment ? category.comment : "";
+      els.overlayCategoryComment.hidden = !els.overlayCategoryComment.textContent;
       els.overlayClue.textContent = clue.clueText;
       els.overlayResponse.textContent = clue.response;
       els.clueCard.classList.remove("revealed");

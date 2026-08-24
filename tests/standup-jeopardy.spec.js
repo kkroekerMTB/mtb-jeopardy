@@ -183,9 +183,11 @@ test.describe("Standup Jeopardy", () => {
   test("shows the category with a generated plain-text clue and reveals the exact response", async ({ page }) => {
     await page.goto(appUrl);
 
+    await expect(page.getByText("(A note about the science category.)")).toHaveCount(0);
     await page.getByRole("button", { name: "$200" }).first().click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByRole("dialog").getByText("SCIENCE & NATURE")).toBeVisible();
+    await expect(page.getByText("(A note about the science category.)")).toBeVisible();
     await expect(page.getByText("A mass of cytoplasm bound by a membrane")).toBeVisible();
     await expect(page.getByRole("dialog").getByRole("link")).toHaveCount(0);
     await expect(page.getByText("a cell")).toBeHidden();
@@ -824,7 +826,8 @@ function testBoard() {
     "ALL MEDIA"
   ].map((title, index) => ({
     id: "category-" + index,
-    title
+    title,
+    comment: index === 0 ? "(A note about the science category.)" : ""
   }));
 
   return {

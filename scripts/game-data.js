@@ -9,7 +9,8 @@ function parseEpisodeInPage(episodeUrl) {
   const categoryCells = rows[0] ? Array.from(rows[0].querySelectorAll("td.category")) : [];
   const categories = categoryCells.map((cell, index) => ({
     id: "category-" + index,
-    title: cleanText(cell.querySelector(".category_name") || cell) || "Category"
+    title: cleanText(cell.querySelector(".category_name") || cell) || "Category",
+    comment: cleanText(cell.querySelector(".category_comments"))
   }));
 
   if (!categories.length) {

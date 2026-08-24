@@ -71,7 +71,7 @@ Local generation uses the production source-episode API by default. Override it 
 * Show the scraped episode title/date in the header when available, but do not block board rendering if that metadata is missing.
 * Show a small source link to the loaded J-Archive episode in the header or footer. This should be a normal user-initiated link, not an external asset dependency.
 * The team should manually select tiles from the board. Do not randomize clue selection or automatically choose the next clue.
-* Normalize scraped category, clue, and response content for presentation: convert scraped HTML to plain text only, clean up whitespace, and render text clearly while preserving the original meaning. Strip or ignore external links, images, audio, video, formatting tags, and other resources.
+* Normalize scraped category, category-comment, clue, and response content for presentation: convert scraped HTML to plain text only, clean up whitespace, and render text clearly while preserving the original meaning. Show category comments only in an opened clue card. Strip or ignore external links, images, audio, video, formatting tags, and other resources.
 * Show correct responses exactly as scraped after plain-text cleanup. Do not normalize casing, leading articles, aliases, or wording.
 * Media-dependent clues are unsupported in the MVP. Do not render media placeholders or attempt to recover stripped image/audio/video content. If a clue contains detected image, audio, or video content, disable that tile automatically.
 * Use scraped clue values exactly as provided by J-Archive. Do not infer fallback dollar values from row position.
