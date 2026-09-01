@@ -537,9 +537,7 @@ test.describe("Standup Jeopardy", () => {
 
     await page.goto(appUrl);
     await page.getByRole("textbox", { name: /team name/i }).fill("The A Team");
-    await page.getByRole("button", { name: "$200" }).first().click();
-    await page.locator("#clueCard").click();
-    await page.getByRole("button", { name: "Correct" }).click();
+    await answerTile(page, 0, "Correct");
     await expect(page.locator("#netValue")).toHaveText("$200");
 
     await page.getByRole("button", { name: "Submit score for first 1 question" }).click();
@@ -800,8 +798,11 @@ async function routeScoreSubmission(page, onSubmit) {
 
 async function answerTile(page, tileIndex, outcome) {
   await page.locator(".tile").nth(tileIndex).click();
+  await expect(page.getByRole("button", { name: "Close clue" })).toBeEnabled();
   await page.locator("#clueCard").click();
-  await page.getByRole("button", { name: outcome, exact: true }).click();
+  const outcomeButton = page.getByRole("button", { name: outcome, exact: true });
+  await expect(outcomeButton).toBeVisible();
+  await outcomeButton.click();
   await expect(page.locator("#overlay")).toBeHidden();
 }
 
