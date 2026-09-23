@@ -46,4 +46,15 @@ test("Pages artifact configures and self-hosts browser telemetry", async (t) => 
     fs.access(path.join(outputDirectory, "assets", "applicationinsights-web.min.js"))
   );
   await assert.doesNotReject(fs.access(path.join(outputDirectory, "telemetry.js")));
+  await assert.doesNotReject(fs.access(path.join(outputDirectory, "session-upload.js")));
+  await assert.doesNotReject(fs.access(path.join(
+    outputDirectory,
+    "data",
+    "jeopardy-session-template.json"
+  )));
+  await assert.doesNotReject(fs.access(path.join(
+    outputDirectory,
+    "data",
+    "jeopardy-session.schema.json"
+  )));
 });

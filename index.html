@@ -163,6 +163,31 @@
       filter: brightness(1.08);
     }
 
+    a.toolbar-button {
+      display: inline-block;
+      text-decoration: none;
+    }
+
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .session-notice {
+      padding: 10px 14px;
+      border: 1px solid #59628f;
+      background: var(--panel-soft);
+      color: #fff;
+      font-weight: 700;
+    }
+
     .filter-button.active {
       background: var(--jeopardy-gold);
       color: #03145f;
@@ -300,6 +325,19 @@
     .confirmation-button:disabled {
       opacity: 0.58;
       cursor: default;
+    }
+
+    .upload-error-card {
+      width: min(720px, 92vw);
+      max-height: min(680px, 86vh);
+      overflow: auto;
+    }
+
+    .upload-error-list {
+      margin: 16px 0;
+      padding-left: 24px;
+      color: #fff;
+      line-height: 1.5;
     }
 
     .source-link {
@@ -783,6 +821,9 @@
             <input id="themeMusicEnabled" name="themeMusicEnabled" type="checkbox" />
             Theme music
           </label>
+          <button id="uploadSession" class="toolbar-button" type="button">Upload Session</button>
+          <input id="sessionFile" class="visually-hidden" type="file" accept=".json,application/json" />
+          <a class="toolbar-button" href="data/jeopardy-session-template.json" download="jeopardy-session-template.json">Download Template</a>
         </div>
       </div>
       <div class="score-panel">
@@ -807,6 +848,8 @@
         </div>
       </div>
     </header>
+
+    <div id="sessionNotice" class="session-notice" role="status" aria-live="polite" hidden></div>
 
     <section id="status" class="status" aria-live="polite">
       <div>
@@ -855,6 +898,18 @@
     </article>
   </section>
 
+  <section id="uploadErrorOverlay" class="overlay" aria-modal="true" role="dialog"
+    aria-labelledby="uploadErrorHeading" hidden>
+    <article class="confirmation-card upload-error-card">
+      <h2 id="uploadErrorHeading" tabindex="-1">Session could not be loaded</h2>
+      <p>Fix the following problems and upload the JSON file again.</p>
+      <ul id="uploadErrorList" class="upload-error-list"></ul>
+      <div class="confirmation-actions">
+        <button id="closeUploadError" class="confirmation-button primary" type="button">Close</button>
+      </div>
+    </article>
+  </section>
+
   <section id="overlay" class="overlay" aria-modal="true" role="dialog" hidden>
     <article id="clueCard" class="clue-card">
       <button id="closeClue" class="close-button" type="button" aria-label="Close clue">&times;</button>
@@ -891,6 +946,7 @@
   ></audio>
   <audio id="themeMusic" src="media/Jeopardy-theme-song.mp3" preload="auto"></audio>
 
+  <script src="session-upload.js"></script>
   <script>
     const TEAM_NAME_KEY = "standup-jeopardy-team-name";
     const THEME_MUSIC_ENABLED_KEY = "standup-jeopardy-theme-music-enabled";
@@ -920,7 +976,9 @@
       themeMusicRetryPending: false,
       answeredClueIds: [],
       maxSubmittedQuestions: null,
-      gameRulesUnavailable: false
+      gameRulesUnavailable: false,
+      isCustomSession: false,
+      sessionNoticeTimeout: null
     };
 
     const els = {
@@ -934,6 +992,13 @@
       netValue: document.getElementById("netValue"),
       unavailableCount: document.getElementById("unavailableCount"),
       submitScore: document.getElementById("submitScore"),
+      uploadSession: document.getElementById("uploadSession"),
+      sessionFile: document.getElementById("sessionFile"),
+      sessionNotice: document.getElementById("sessionNotice"),
+      uploadErrorOverlay: document.getElementById("uploadErrorOverlay"),
+      uploadErrorHeading: document.getElementById("uploadErrorHeading"),
+      uploadErrorList: document.getElementById("uploadErrorList"),
+      closeUploadError: document.getElementById("closeUploadError"),
       submitScoreOverlay: document.getElementById("submitScoreOverlay"),
       submitScoreSummary: document.getElementById("submitScoreSummary"),
       submitScoreStatus: document.getElementById("submitScoreStatus"),
@@ -975,6 +1040,7 @@
       loadTeamName();
       setupThemeMusic();
       setupLeaderboard();
+      setupSessionUpload();
       try {
         setLoadingText("Loading board...");
         const [board] = await Promise.all([
@@ -986,6 +1052,10 @@
             updateSubmitScoreButton();
           })
         ]);
+
+        if (state.isCustomSession) {
+          return;
+        }
 
         state.board = board;
         renderBoard();
@@ -1000,7 +1070,9 @@
       } catch (error) {
         console.error("Couldn't load latest game", error);
         trackTelemetryException(error, { operation: "board_load" });
-        showFailure();
+        if (!state.isCustomSession) {
+          showFailure();
+        }
       }
     }
 
@@ -1176,8 +1248,13 @@
       els.unavailableCount.textContent = String(summary.unavailable);
       els.episodeMeta.textContent = state.board.episodeTitle;
 
-      els.sourceLink.href = state.board.episodeUrl;
-      els.sourceLink.hidden = false;
+      if (state.board.episodeUrl) {
+        els.sourceLink.href = state.board.episodeUrl;
+        els.sourceLink.hidden = false;
+      } else {
+        els.sourceLink.removeAttribute("href");
+        els.sourceLink.hidden = true;
+      }
       updateSubmitScoreButton();
     }
 
@@ -1571,6 +1648,159 @@
       els.status.innerHTML = "<div><p class=\"status-title\">Couldn't load latest game</p></div>";
     }
 
+    function setupSessionUpload() {
+      if (!els.uploadSession || !els.sessionFile || !els.closeUploadError) {
+        return;
+      }
+
+      els.uploadSession.addEventListener("click", () => {
+        els.sessionFile.value = "";
+        els.sessionFile.click();
+      });
+      els.sessionFile.addEventListener("change", () => {
+        const [file] = els.sessionFile.files;
+        if (file) {
+          importSessionFile(file).catch((error) => {
+            console.error("Couldn't read custom session", error);
+            reportSessionUploadFailure(
+              [{ code: "file.read", message: "The selected file could not be read." }],
+              file.size
+            );
+          });
+        }
+      });
+      els.closeUploadError.addEventListener("click", closeUploadErrors);
+    }
+
+    async function importSessionFile(file) {
+      const maximumBytes = window.jeopardySession.LIMITS.fileBytes;
+      if (!/\.json$/i.test(file.name)) {
+        reportSessionUploadFailure(
+          [{ code: "file.extension", message: "The selected file must have a .json extension." }],
+          file.size
+        );
+        return;
+      }
+
+      if (file.size > maximumBytes) {
+        reportSessionUploadFailure(
+          [{
+            code: "file.size",
+            message: `The selected file must be ${maximumBytes / 1024} KiB or smaller.`
+          }],
+          file.size
+        );
+        return;
+      }
+
+      const bytes = await file.arrayBuffer();
+      let text;
+      try {
+        text = new TextDecoder("utf-8", { fatal: true }).decode(bytes).replace(/^\uFEFF/u, "");
+      } catch {
+        reportSessionUploadFailure(
+          [{ code: "file.encoding", message: "The selected file must use UTF-8 encoding." }],
+          file.size
+        );
+        return;
+      }
+
+      if (!text.trim()) {
+        reportSessionUploadFailure(
+          [{ code: "file.empty", message: "The selected file is empty." }],
+          file.size
+        );
+        return;
+      }
+
+      let document;
+      try {
+        document = JSON.parse(text);
+      } catch (error) {
+        reportSessionUploadFailure(
+          [{ code: "json.syntax", message: "The selected file is not valid JSON: " + error.message }],
+          file.size
+        );
+        return;
+      }
+
+      const result = window.jeopardySession.validateAndNormalize(document);
+      if (!result.valid) {
+        reportSessionUploadFailure(result.errors, file.size);
+        return;
+      }
+
+      applyCustomSession(result.board);
+      trackTelemetryEvent("session_upload_succeeded", {
+        dailyDouble: String(Boolean(result.board.dailyDoubleClueId))
+      }, {
+        fileBytes: file.size
+      });
+    }
+
+    function reportSessionUploadFailure(errors, fileBytes) {
+      showUploadErrors(errors);
+      const errorCodes = Array.from(new Set(errors.map((item) => item.code))).join(",");
+      trackTelemetryEvent("session_upload_failed", { errorCodes }, { fileBytes });
+    }
+
+    function applyCustomSession(board) {
+      closeClue();
+      closeSubmitScoreModal();
+      closeUploadErrors(false);
+      els.dailyDoubleSound.pause();
+      els.dailyDoubleSound.currentTime = 0;
+
+      state.board = board;
+      state.selectedClueId = null;
+      state.revealed = false;
+      state.selectedTileRect = null;
+      state.isTransitioning = false;
+      state.scoreSubmitted = false;
+      state.scoreSubmitting = false;
+      state.dailyDoubleWager = 0;
+      state.dailyDoubleScoreBeforeWager = 0;
+      state.wagerLocked = false;
+      state.answeredClueIds = [];
+      state.isCustomSession = true;
+
+      renderBoard();
+      renderHeader();
+      showSessionNotice("Custom session loaded: " + board.episodeTitle);
+    }
+
+    function showSessionNotice(message) {
+      window.clearTimeout(state.sessionNoticeTimeout);
+      els.sessionNotice.textContent = message;
+      els.sessionNotice.hidden = false;
+      state.sessionNoticeTimeout = window.setTimeout(() => {
+        els.sessionNotice.hidden = true;
+        els.sessionNotice.textContent = "";
+      }, 5000);
+    }
+
+    function showUploadErrors(errors) {
+      els.uploadErrorList.replaceChildren();
+      errors.forEach((item) => {
+        const listItem = document.createElement("li");
+        listItem.textContent = item.message;
+        els.uploadErrorList.append(listItem);
+      });
+      els.uploadErrorOverlay.hidden = false;
+      els.uploadErrorOverlay.classList.add("active");
+      document.body.classList.add("overlay-open");
+      els.uploadErrorHeading.focus();
+    }
+
+    function closeUploadErrors(restoreFocus = true) {
+      els.uploadErrorOverlay.hidden = true;
+      els.uploadErrorOverlay.classList.remove("active");
+      document.body.classList.remove("overlay-open");
+      if (restoreFocus) {
+        els.uploadSession.focus();
+      }
+    }
+
     function setupScoreSubmission() {
       if (!els.submitScore || !els.submitScoreOverlay || !els.cancelSubmitScore || !els.confirmSubmitScore) {
         return;
@@ -1589,7 +1819,10 @@
 
       const summary = getSubmissionScoreSummary();
 
-      if (state.scoreSubmitted) {
+      if (state.isCustomSession) {
+        els.submitScore.disabled = true;
+        els.submitScore.textContent = "Custom session — score not eligible";
+      } else if (state.scoreSubmitted) {
         els.submitScore.disabled = true;
         els.submitScore.textContent = "Submitted";
       } else if (state.scoreSubmitting) {
@@ -1613,7 +1846,8 @@
 
     function openSubmitScoreModal() {
       const summary = getSubmissionScoreSummary();
-      if (state.scoreSubmitted || state.scoreSubmitting || !state.maxSubmittedQuestions || !summary.questionCount) {
+      if (state.isCustomSession || state.scoreSubmitted || state.scoreSubmitting ||
+        !state.maxSubmittedQuestions || !summary.questionCount) {
         return;
       }
 
@@ -1651,7 +1885,8 @@
 
     async function submitScore() {
       const summary = getSubmissionScoreSummary();
-      if (state.scoreSubmitted || state.scoreSubmitting || !state.maxSubmittedQuestions || !summary.questionCount) {
+      if (state.isCustomSession || state.scoreSubmitted || state.scoreSubmitting ||
+        !state.maxSubmittedQuestions || !summary.questionCount) {
         return;
       }
 

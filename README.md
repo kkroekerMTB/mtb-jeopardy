@@ -35,6 +35,42 @@ If the newest playable episode was already used or cannot be loaded, generation 
 
 Local generation uses the production source-episode API by default. Override it with `SCORES_API_URL`. Set `CURRENT_GAME_DATA_URL` to enable the published-board day lock; the Pages workflow sets this automatically, while ordinary local runs remain unlocked.
 
+## Custom sessions
+
+Use **Upload Session** to replace the current game with a local JSON file. The file is read only in the browser and is never sent to the server. Uploading a valid session immediately resets score and board progress while preserving the saved team name and Theme music preference. Custom sessions last only until the page is refreshed, and their scores cannot be submitted to the leaderboard.
+
+The file must:
+
+* Have a `.json` filename and valid UTF-8 JSON content.
+* Be no larger than 256 KiB.
+* Contain exactly six categories and exactly five questions per category.
+* Use nonblank strings no longer than 120 characters for the optional session title, 80 for category titles, 1,000 for questions, and 300 for answers.
+* Use only ordinary text controls: tabs and line breaks are supported, while other control characters are rejected.
+
+The public document shape is:
+
+```json
+{
+  "title": "Optional session title",
+  "categories": [
+    {
+      "title": "Category title",
+      "questions": [
+        {
+          "question": "Question text",
+          "answer": "Answer text",
+          "dailyDouble": true
+        }
+      ]
+    }
+  ]
+}
+```
+
+`title` and `dailyDouble` are optional. An omitted title displays as `Custom Session`. An omitted `dailyDouble` is false, and a session may contain no Daily Double. If multiple questions are marked true, the last marked question in category/question order is used. Unknown properties are ignored. Values are assigned by row as $200, $400, $600, $800, and $1,000.
+
+Download [the playable template](data/jeopardy-session-template.json) from the app or repository. The machine-readable contract is [the JSON Schema](data/jeopardy-session.schema.json).
+
 ## What we want
 
 * I want a static HTML website which fetches the relevant Jeopardy data for the most recent episode, formats it as JSON, and renders the the retrieved questions and answers in the classic Jeopardy grid.

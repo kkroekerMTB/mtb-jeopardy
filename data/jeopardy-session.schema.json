@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "jeopardy-session.schema.json",
+  "title": "Standup Jeopardy custom session",
+  "type": "object",
+  "required": ["categories"],
+  "properties": {
+    "title": { "$ref": "#/$defs/sessionTitle" },
+    "categories": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": { "$ref": "#/$defs/category" }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "sessionTitle": {
+      "type": "string",
+      "maxLength": 120,
+      "pattern": "^(?=[\\s\\S]*\\S)[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F]*$"
+    },
+    "categoryTitle": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^(?=[\\s\\S]*\\S)[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F]*$"
+    },
+    "questionText": {
+      "type": "string",
+      "maxLength": 1000,
+      "pattern": "^(?=[\\s\\S]*\\S)[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F]*$"
+    },
+    "answerText": {
+      "type": "string",
+      "maxLength": 300,
+      "pattern": "^(?=[\\s\\S]*\\S)[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F]*$"
+    },
+    "category": {
+      "type": "object",
+      "required": ["title", "questions"],
+      "properties": {
+        "title": { "$ref": "#/$defs/categoryTitle" },
+        "questions": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": { "$ref": "#/$defs/question" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "question": {
+      "type": "object",
+      "required": ["question", "answer"],
+      "properties": {
+        "question": { "$ref": "#/$defs/questionText" },
+        "answer": { "$ref": "#/$defs/answerText" },
+        "dailyDouble": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    }
+  }
+}

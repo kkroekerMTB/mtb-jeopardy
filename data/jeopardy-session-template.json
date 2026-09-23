@@ -1,0 +1,65 @@
+{
+  "title": "Team Trivia Night",
+  "categories": [
+    {
+      "title": "Science",
+      "questions": [
+        { "question": "This planet is known as the Red Planet.", "answer": "Mars" },
+        { "question": "This force keeps planets in orbit around the Sun.", "answer": "Gravity" },
+        { "question": "This is the chemical symbol for gold.", "answer": "Au", "dailyDouble": true },
+        { "question": "This organelle is called the powerhouse of the cell.", "answer": "The mitochondrion" },
+        { "question": "This scale measures mineral hardness from talc to diamond.", "answer": "The Mohs scale" }
+      ]
+    },
+    {
+      "title": "Geography",
+      "questions": [
+        { "question": "This is the largest ocean on Earth.", "answer": "The Pacific Ocean" },
+        { "question": "This river flows through Egypt into the Mediterranean Sea.", "answer": "The Nile" },
+        { "question": "This country has a maple leaf on its flag.", "answer": "Canada" },
+        { "question": "This mountain is the highest above sea level.", "answer": "Mount Everest" },
+        { "question": "This is the capital city of New Zealand.", "answer": "Wellington" }
+      ]
+    },
+    {
+      "title": "History",
+      "questions": [
+        { "question": "This ancient civilization built Machu Picchu.", "answer": "The Inca" },
+        { "question": "This document was signed in 1215 at Runnymede.", "answer": "Magna Carta" },
+        { "question": "This city was buried by Mount Vesuvius in 79 CE.", "answer": "Pompeii" },
+        { "question": "This empire was ruled by Mansa Musa.", "answer": "The Mali Empire" },
+        { "question": "This 1989 event opened a barrier dividing East and West Berlin.", "answer": "The fall of the Berlin Wall" }
+      ]
+    },
+    {
+      "title": "Books",
+      "questions": [
+        { "question": "This author created Sherlock Holmes.", "answer": "Arthur Conan Doyle" },
+        { "question": "This novel begins with the line about a bright cold day in April.", "answer": "1984" },
+        { "question": "This Shakespeare tragedy features the prince of Denmark.", "answer": "Hamlet" },
+        { "question": "This author wrote Pride and Prejudice.", "answer": "Jane Austen" },
+        { "question": "This fictional land is entered through a wardrobe.", "answer": "Narnia" }
+      ]
+    },
+    {
+      "title": "Technology",
+      "questions": [
+        { "question": "This three-letter language structures web pages.", "answer": "HTML" },
+        { "question": "This company created the Java programming language.", "answer": "Sun Microsystems" },
+        { "question": "This protocol secures ordinary HTTP traffic.", "answer": "TLS" },
+        { "question": "This unit contains eight bits.", "answer": "A byte" },
+        { "question": "This sorting algorithm repeatedly partitions around a pivot.", "answer": "Quicksort" }
+      ]
+    },
+    {
+      "title": "Wordplay",
+      "questions": [
+        { "question": "A word with the opposite meaning of another word.", "answer": "An antonym" },
+        { "question": "A word formed from the initial letters of a phrase, like NASA.", "answer": "An acronym" },
+        { "question": "A word that reads the same forward and backward.", "answer": "A palindrome" },
+        { "question": "A comparison using like or as.", "answer": "A simile" },
+        { "question": "A phrase whose words begin with the same sound.", "answer": "Alliteration" }
+      ]
+    }
+  ]
+}

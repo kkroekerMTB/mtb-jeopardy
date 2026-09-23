@@ -35,6 +35,10 @@ async function buildSite(
     path.join(repositoryRoot, "telemetry.js"),
     path.join(outputDirectory, "telemetry.js")
   );
+  await fs.copyFile(
+    path.join(repositoryRoot, "session-upload.js"),
+    path.join(outputDirectory, "session-upload.js")
+  );
   await fs.writeFile(
     path.join(outputDirectory, "telemetry-config.js"),
     `window.jeopardyTelemetryConfig = ${JSON.stringify({

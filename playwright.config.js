@@ -5,6 +5,7 @@ module.exports = defineConfig({
   testIgnore: [
     "**/server.test.js",
     "**/build-site.test.js",
+    "**/session-upload.test.js",
     "**/telemetry.test.js",
     "**/workflows.test.js"
   ],

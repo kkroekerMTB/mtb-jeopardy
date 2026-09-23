@@ -482,6 +482,151 @@ test.describe("Standup Jeopardy", () => {
     await expect(page.getByRole("textbox", { name: /team name/i })).toHaveValue("The A Team");
   });
 
+  test("loads a custom session atomically and disables score submission", async ({ page }) => {
+    await routeLeaderboardScores(page);
+    await page.goto(appUrl);
+    await page.getByRole("textbox", { name: /team name/i }).fill("The A Team");
+    await page.getByRole("checkbox", { name: "Theme music" }).uncheck();
+    await answerTile(page, 0, "Correct");
+    await expect(page.locator("#netValue")).toHaveText("$200");
+
+    const session = customSession();
+    session.title = "  Engineering Night  ";
+    session.categories[0].title = "  Architecture  ";
+    session.categories[0].questions[0] = {
+      question: "  What pattern separates construction from use?  ",
+      answer: "  The factory pattern  ",
+      extraProperty: "ignored"
+    };
+    await uploadSession(page, session);
+
+    await expect(page.locator("#sessionNotice")).toHaveText("Custom session loaded: Engineering Night");
+    await expect(page.locator("#episodeMeta")).toHaveText("Engineering Night");
+    await expect(page.getByRole("link", { name: "Source episode" })).toBeHidden();
+    await expect(page.getByText("Architecture", { exact: true })).toBeVisible();
+    await expect(page.locator(".category")).toHaveCount(6);
+    await expect(page.locator(".tile")).toHaveCount(30);
+    await expect(page.locator("#correctCount")).toHaveText("0");
+    await expect(page.locator("#netValue")).toHaveText("$0");
+    await expect(page.getByRole("textbox", { name: /team name/i })).toHaveValue("The A Team");
+    await expect(page.getByRole("checkbox", { name: "Theme music" })).not.toBeChecked();
+    await expect(page.getByRole("button", { name: "Custom session — score not eligible" })).toBeDisabled();
+
+    await page.getByRole("button", { name: "Leaderboard" }).click();
+    await expect(page.getByRole("dialog", { name: "Leaderboard" })).toBeVisible();
+    await page.getByRole("button", { name: "Close leaderboard" }).click();
+
+    await page.locator(".tile").first().click();
+    await expect(page.getByText("What pattern separates construction from use?")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Close clue" })).toBeEnabled();
+    await page.locator("#clueCard").click();
+    await expect(page.getByText("The factory pattern")).toBeVisible();
+  });
+
+  test("keeps the current board unchanged and reports all upload validation errors", async ({ page }) => {
+    await page.goto(appUrl);
+    await answerTile(page, 0, "Correct");
+    const session = customSession();
+    session.title = " ";
+    session.categories.pop();
+    session.categories[0].title = 9;
+    session.categories[0].questions.pop();
+    session.categories[1].questions[0].answer = " ";
+
+    await uploadSession(page, session);
+
+    const dialog = page.getByRole("dialog", { name: "Session could not be loaded" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("listitem")).toHaveCount(5);
+    await expect(dialog).toContainText("title must not be empty or whitespace only");
+    await expect(dialog).toContainText("categories must contain exactly 6 items");
+    await expect(dialog).toContainText("categories[0].title must be a string");
+    await expect(dialog).toContainText("categories[0].questions must contain exactly 5 items");
+    await expect(dialog).toContainText("categories[1].questions[0].answer must not be empty");
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+
+    await expect(page.locator("#episodeMeta")).toHaveText("Show #9999 - Monday, June 1, 2026");
+    await expect(page.locator("#correctCount")).toHaveText("1");
+    await expect(page.locator("#netValue")).toHaveText("$200");
+  });
+
+  test("rejects a non-json filename even when its content is valid", async ({ page }) => {
+    await page.goto(appUrl);
+
+    await uploadSession(page, customSession(), "custom.txt");
+
+    const dialog = page.getByRole("dialog", { name: "Session could not be loaded" });
+    await expect(dialog).toContainText("The selected file must have a .json extension.");
+    await expect(page.getByText("SCIENCE & NATURE")).toBeVisible();
+  });
+
+  test("rejects empty, malformed, oversized, and non-UTF-8 JSON files", async ({ page }) => {
+    await page.goto(appUrl);
+
+    await uploadRawSession(page, Buffer.alloc(0));
+    await expect(page.getByRole("dialog", { name: "Session could not be loaded" }))
+      .toContainText("The selected file is empty.");
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+
+    await uploadRawSession(page, Buffer.from("{broken"));
+    await expect(page.getByRole("dialog", { name: "Session could not be loaded" }))
+      .toContainText("The selected file is not valid JSON");
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+
+    await uploadRawSession(page, Buffer.alloc((256 * 1024) + 1, 32));
+    await expect(page.getByRole("dialog", { name: "Session could not be loaded" }))
+      .toContainText("The selected file must be 256 KiB or smaller.");
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+
+    await uploadRawSession(page, Buffer.from([0xc3, 0x28]));
+    await expect(page.getByRole("dialog", { name: "Session could not be loaded" }))
+      .toContainText("The selected file must use UTF-8 encoding.");
+    await expect(page.getByText("SCIENCE & NATURE")).toBeVisible();
+  });
+
+  test("discards a custom session on refresh and loads the official board", async ({ page }) => {
+    await page.goto(appUrl);
+    await uploadSession(page, customSession());
+    await expect(page.locator("#episodeMeta")).toHaveText("Custom Session");
+
+    await page.reload();
+
+    await expect(page.locator("#episodeMeta")).toHaveText("Show #9999 - Monday, June 1, 2026");
+    await expect(page.getByRole("button", { name: "Answer a question to submit" })).toBeDisabled();
+  });
+
+  test("can recover from an official board load failure with a custom session", async ({ page }) => {
+    await routeGameData(page, { status: 500, body: "{}" });
+    await page.goto(appUrl);
+    await expect(page.getByText("Couldn't load latest game")).toBeVisible();
+
+    await uploadSession(page, customSession());
+
+    await expect(page.locator("#episodeMeta")).toHaveText("Custom Session");
+    await expect(page.locator("#board")).toBeVisible();
+    await expect(page.locator(".tile")).toHaveCount(30);
+  });
+
+  test("keeps custom content and filenames out of upload telemetry", async ({ page }) => {
+    await installTelemetrySpy(page);
+    await page.goto(appUrl);
+    const session = customSession();
+    session.title = "Private planning session";
+    session.categories[0].questions[0].question = "Secret roadmap detail";
+
+    await uploadSession(page, session, "confidential-board.json");
+
+    await expect.poll(() => page.evaluate(() => window.telemetryEvents)).toContainEqual({
+      name: "session_upload_succeeded",
+      properties: { dailyDouble: "false" },
+      measurements: { fileBytes: Buffer.byteLength(JSON.stringify(session)) }
+    });
+    const telemetry = await page.evaluate(() => JSON.stringify(window.telemetryEvents));
+    expect(telemetry).not.toContain("Private planning session");
+    expect(telemetry).not.toContain("Secret roadmap detail");
+    expect(telemetry).not.toContain("confidential-board.json");
+  });
+
   test("opens the leaderboard and shows mocked scores for each filter", async ({ page }) => {
     await routeLeaderboardScores(page);
 
@@ -705,7 +850,8 @@ test("static file loads only local generated data and self-hosted dependencies",
   expect(scriptSources).toEqual([
     "telemetry-config.js",
     "node_modules/@microsoft/applicationinsights-web/browser/es5/ai.3.gbl.min.js",
-    "telemetry.js"
+    "telemetry.js",
+    "session-upload.js"
   ]);
   expect(scriptSources.every((source) => !/^https?:/i.test(source))).toBe(true);
   expect(html).not.toMatch(/<link\s+[^>]*rel=["']?stylesheet/i);
@@ -804,6 +950,31 @@ async function answerTile(page, tileIndex, outcome) {
   await expect(outcomeButton).toBeVisible();
   await outcomeButton.click();
   await expect(page.locator("#overlay")).toBeHidden();
+}
+
+async function uploadSession(page, document, name = "custom-session.json") {
+  const content = JSON.stringify(document);
+  await uploadRawSession(page, Buffer.from(content), name);
+}
+
+async function uploadRawSession(page, buffer, name = "custom-session.json") {
+  await page.locator("#sessionFile").setInputFiles({
+    name,
+    mimeType: name.toLowerCase().endsWith(".json") ? "application/json" : "text/plain",
+    buffer
+  });
+}
+
+function customSession() {
+  return {
+    categories: Array.from({ length: 6 }, (_, categoryIndex) => ({
+      title: `Custom category ${categoryIndex + 1}`,
+      questions: Array.from({ length: 5 }, (_, questionIndex) => ({
+        question: `Custom question ${categoryIndex + 1}-${questionIndex + 1}`,
+        answer: `Custom answer ${categoryIndex + 1}-${questionIndex + 1}`
+      }))
+    }))
+  };
 }
 
 function testScores(filter) {
