@@ -47,7 +47,7 @@ test.describe("Standup Jeopardy", () => {
     await page.getByRole("button", { name: "$200" }).first().click();
     await expect(page.locator("#closeClue")).toBeEnabled();
     const correctButton = page.getByRole("button", { name: "Correct" });
-    await page.locator("#clueCard").click();
+    await revealResponse(page);
     await expect(correctButton).toBeVisible();
     await correctButton.click();
 
@@ -195,7 +195,7 @@ test.describe("Standup Jeopardy", () => {
     await expect(page.getByRole("dialog").getByRole("link")).toHaveCount(0);
     await expect(page.getByText("a cell")).toBeHidden();
 
-    await page.locator("#clueCard").click();
+    await revealResponse(page);
 
     await expect(page.getByText("a cell")).toBeVisible();
     await expect(page.locator("#overlayResponse")).toHaveCSS("opacity", "1");
@@ -226,7 +226,7 @@ test.describe("Standup Jeopardy", () => {
 
     const firstTile = page.getByRole("button", { name: "$200" }).first();
     await firstTile.click();
-    await page.locator("#clueCard").click();
+    await revealResponse(page);
     await page.getByRole("button", { name: "Correct" }).click();
 
     await expect(page.locator("#correctCount")).toHaveText("1");
@@ -243,7 +243,7 @@ test.describe("Standup Jeopardy", () => {
     await page.goto(appUrl);
 
     await page.getByRole("button", { name: "$400" }).first().click();
-    await page.locator("#clueCard").click();
+    await revealResponse(page);
     await page.getByRole("button", { name: "Missed" }).click();
 
     await expect(page.locator("#correctCount")).toHaveText("0");
@@ -271,7 +271,7 @@ test.describe("Standup Jeopardy", () => {
     await page.goto(appUrl);
 
     await page.getByRole("button", { name: "$200" }).first().click();
-    await page.locator("#clueCard").click();
+    await revealResponse(page);
     await page.getByRole("button", { name: "Correct" }).click();
     await expect(page.locator("#netValue")).toHaveText("$200");
 
@@ -286,7 +286,7 @@ test.describe("Standup Jeopardy", () => {
     await expect(page.getByText("This clue is the source Daily Double")).toBeVisible();
     await expect(page.getByRole("spinbutton", { name: "Wager" })).toBeHidden();
 
-    await page.locator("#clueCard").click();
+    await revealResponse(page);
     await page.getByRole("button", { name: "Correct" }).click();
 
     await expect(page.locator("#correctCount")).toHaveText("2");
@@ -303,7 +303,7 @@ test.describe("Standup Jeopardy", () => {
     await dailyDoubleTile.click();
     await page.getByRole("spinbutton", { name: "Wager" }).fill("750");
     await page.getByRole("button", { name: "Lock wager" }).click();
-    await page.locator("#clueCard").click();
+    await revealResponse(page);
     await page.getByRole("button", { name: "Missed" }).click();
 
     await expect(page.locator("#correctCount")).toHaveText("0");
@@ -394,7 +394,7 @@ test.describe("Standup Jeopardy", () => {
 
     await page.getByRole("textbox", { name: /team name/i }).fill("The A Team");
     await page.getByRole("button", { name: "$600" }).first().click();
-    await page.locator("#clueCard").click();
+    await revealResponse(page);
     await page.locator("#closeClue").click();
 
     await expect.poll(() => page.evaluate(() => window.telemetryEvents)).toContainEqual({
@@ -414,7 +414,7 @@ test.describe("Standup Jeopardy", () => {
     await tile.click();
     await page.locator("#closeClue").click();
     await tile.click();
-    await page.locator("#clueCard").click();
+    await revealResponse(page);
     await page.locator("#closeClue").click();
 
     await expect.poll(() => page.evaluate(() => window.telemetryEvents)).toContainEqual({
@@ -457,7 +457,7 @@ test.describe("Standup Jeopardy", () => {
     await page.goto(appUrl);
 
     await page.getByRole("button", { name: "$200" }).first().click();
-    await page.locator("#clueCard").click();
+    await revealResponse(page);
     await page.getByRole("button", { name: "Correct" }).click();
     await expect(page.locator("#correctCount")).toHaveText("1");
 
@@ -519,7 +519,7 @@ test.describe("Standup Jeopardy", () => {
     await page.locator(".tile").first().click();
     await expect(page.getByText("What pattern separates construction from use?")).toBeVisible();
     await expect(page.getByRole("button", { name: "Close clue" })).toBeEnabled();
-    await page.locator("#clueCard").click();
+    await revealResponse(page);
     await expect(page.getByText("The factory pattern")).toBeVisible();
   });
 
@@ -726,7 +726,7 @@ test.describe("Standup Jeopardy", () => {
     await page.locator(".tile").nth(2).click();
     await page.getByRole("spinbutton", { name: "Wager" }).fill("600");
     await page.getByRole("button", { name: "Lock wager" }).click();
-    await page.locator("#clueCard").click();
+    await revealResponse(page);
     await page.getByRole("button", { name: "Missed" }).click();
 
     await page.getByRole("button", { name: "Submit score for first 1 question" }).click();
@@ -761,7 +761,7 @@ test.describe("Standup Jeopardy", () => {
     await page.locator(".tile").nth(2).click();
     await page.getByRole("spinbutton", { name: "Wager" }).fill("500");
     await page.getByRole("button", { name: "Lock wager" }).click();
-    await page.locator("#clueCard").click();
+    await revealResponse(page);
     await page.getByRole("button", { name: "Missed" }).click();
 
     await expect(page.locator("#correctCount")).toHaveText("6");
@@ -942,10 +942,19 @@ async function routeScoreSubmission(page, onSubmit) {
   });
 }
 
+async function revealResponse(page) {
+  // The card can be stable before the app clears its transition guard.
+  await expect(page.locator("#overlay")).toBeVisible();
+  await expect(page.locator("#overlay")).not.toHaveClass(
+    /animating|closing|daily-double-entering|reduced-motion-entering/
+  );
+  await page.locator("#clueCard").click();
+}
+
 async function answerTile(page, tileIndex, outcome) {
   await page.locator(".tile").nth(tileIndex).click();
   await expect(page.getByRole("button", { name: "Close clue" })).toBeEnabled();
-  await page.locator("#clueCard").click();
+  await revealResponse(page);
   const outcomeButton = page.getByRole("button", { name: outcome, exact: true });
   await expect(outcomeButton).toBeVisible();
   await outcomeButton.click();
