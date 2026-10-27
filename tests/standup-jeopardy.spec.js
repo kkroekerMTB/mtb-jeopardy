@@ -65,6 +65,63 @@ test.describe("Standup Jeopardy", () => {
     expect(await page.evaluate(() => JSON.stringify(window.telemetryEvents))).not.toContain("teamName");
   });
 
+  test("real browser SDK adds user context independently of team names and preserves anonymous identity on reload", async ({ page }) => {
+    await page.route("**/telemetry-config.js", (route) => route.fulfill({
+      contentType: "application/javascript",
+      body: 'window.jeopardyTelemetryConfig = { connectionString: "InstrumentationKey=00000000-0000-0000-0000-000000000001;IngestionEndpoint=https://telemetry.invalid" };'
+    }));
+    await page.route("**/telemetry.js", async (route) => {
+      const source = fs.readFileSync(path.join(__dirname, "../telemetry.js"), "utf8");
+      await route.fulfill({
+        contentType: "application/javascript",
+        body: `
+          window.capturedTelemetry = [];
+          const OriginalSDK = Microsoft.ApplicationInsights.ApplicationInsights;
+          Microsoft.ApplicationInsights.ApplicationInsights = class extends OriginalSDK {
+            loadAppInsights() {
+              const result = super.loadAppInsights();
+              this.addTelemetryInitializer((item) => {
+                window.capturedTelemetry.push(JSON.parse(JSON.stringify(item)));
+                return false;
+              });
+              return result;
+            }
+          };
+          ${source}
+        `
+      });
+    });
+    await page.goto(appUrl);
+    await expect.poll(() => page.evaluate(() => window.capturedTelemetry.some(
+      (item) => item.baseData?.name === "board_loaded"
+    ))).toBe(true);
+    const first = await page.evaluate(() => {
+      const item = window.capturedTelemetry.find((item) => item.baseData?.name === "board_loaded");
+      return { user: JSON.parse(item.data.user), sdkUserId: item.ext.user.id, sdkSessionId: item.ext.app.sesId };
+    });
+    expect(first.user.anonymousId).toBeTruthy();
+    expect(first.user.sessionId).toBeTruthy();
+    expect(first.user.anonymousId).toBe(first.sdkUserId);
+    expect(first.user.sessionId).toBe(first.sdkSessionId);
+    expect(first.user.browser.name).toBe("Chrome");
+    expect(first.user.device.screen.width).toBeGreaterThan(0);
+    expect(first.user.identity).toEqual({ displayName: null, email: null, authenticatedId: null });
+    expect(first.user.location).toEqual({ city: null, region: null, country: null });
+
+    await page.evaluate(() => localStorage.setItem("standup-jeopardy-team-name", "The A Team"));
+    await page.reload();
+    await expect.poll(() => page.evaluate(() => window.capturedTelemetry.some(
+      (item) => item.baseData?.name === "board_loaded"
+    ))).toBe(true);
+    const second = await page.evaluate(() => JSON.parse(window.capturedTelemetry.find(
+      (item) => item.baseData?.name === "board_loaded"
+    ).data.user));
+    expect(second.anonymousId).toBe(first.user.anonymousId);
+    expect(second.guestName).toBe(first.user.guestName);
+    expect(second.sessionId).toBe(first.user.sessionId);
+    expect(JSON.stringify(second)).not.toContain("The A Team");
+  });
+
   test("does not visually reveal the Daily Double tile before it is selected", async ({ page }) => {
     await page.goto(appUrl);
 

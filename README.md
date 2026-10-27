@@ -149,6 +149,21 @@ Telemetry is disabled when its connection string is not configured. To enable bo
 
 The browser reports page views, fetch dependencies, uncaught errors, handled loading/submission failures, and the `board_loaded`, `clue_answered`, `clue_abandoned`, `clue_cheated`, and `score_submitted` events under the `mtb-jeopardy-web` cloud role. `clue_abandoned` records closing a clue before its response is revealed; `clue_cheated` records closing it after the response is revealed without scoring it. Those two events include the team name when configured. Other custom events omit the team name, and all custom events omit clue and response text.
 
+All browser telemetry also includes a `user` custom property, serialized as JSON independently of `teamName`. It contains the SDK's anonymous browser ID and current session ID, a readable `Guest-` label derived from the first eight characters of the anonymous ID, browser name/version/languages, device type/OS/screen dimensions, and time zone. Browser and device detection is best effort and may reflect reduced or spoofed browser information. Missing values are `null` (or an empty language list). Anonymous identity follows the SDK cookie lifecycle; clearing cookies or changing browser profiles/devices creates a different identity.
+
+The child objects `identity` (`displayName`, `email`, `authenticatedId`) and `location` (`city`, `region`, `country`) contain `null` placeholders. The app has no sign-in integration or location lookup. Application Insights' server-side location enrichment remains in its standard location columns and does not populate this child object. No raw IP address or user-agent string is added to `user`.
+
+To read the object in Application Insights Logs:
+
+```kusto
+customEvents
+| where cloud_RoleName == "mtb-jeopardy-web"
+| extend user = parse_json(tostring(customDimensions.user))
+| project timestamp, name, teamName = tostring(customDimensions.teamName),
+    anonymousId = tostring(user.anonymousId), guestName = tostring(user.guestName),
+    browser = tostring(user.browser.name), timeZone = tostring(user.timeZone)
+```
+
 The frontend and backend can report to the same Application Insights resource because their role names distinguish them. If App Service codeless Application Insights monitoring is already enabled, disable it before using the code-based backend instrumentation to avoid competing instrumentation paths.
 
 For a configured local static build, run:
