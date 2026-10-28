@@ -1,10 +1,15 @@
 (function initializeBrowserTelemetry(global) {
   "use strict";
 
+  let appInsights;
+  let browserContext;
+  let fallbackId;
+
   const noOpTelemetry = {
     enabled: false,
     trackEvent() {},
-    trackException() {}
+    trackException() {},
+    getUserContext
   };
   global.jeopardyTelemetry = noOpTelemetry;
 
@@ -78,35 +83,58 @@
     };
   }
 
+  function getUserContext() {
+    browserContext ||= getBrowserContext();
+    if (!appInsights && !fallbackId) {
+      try {
+        fallbackId = global.localStorage?.getItem("standup-jeopardy-player-id");
+      } catch { /* Storage can be disabled. Keep an in-memory identity instead. */ }
+      if (!fallbackId) {
+        fallbackId = global.crypto.randomUUID();
+        try {
+          global.localStorage?.setItem("standup-jeopardy-player-id", fallbackId);
+        } catch { /* The current page still has a stable identity. */ }
+      }
+    }
+    const anonymousId = appInsights ? appInsights.context?.user?.id || null : fallbackId;
+    const location = global.jeopardyLocation?.getLocation();
+    return {
+      anonymousId,
+      guestName: anonymousId ? `Guest-${anonymousId.slice(0, 8)}` : null,
+      sessionId: appInsights?.context?.getSessionId?.() || null,
+      identity: { displayName: null, email: null, authenticatedId: null },
+      ...browserContext,
+      location: {
+        city: location?.city || null,
+        region: location?.region || null,
+        country: location?.country || null
+      }
+    };
+  }
+
   try {
-    const browserContext = getBrowserContext();
-    const appInsights = new ApplicationInsights({
+    appInsights = new ApplicationInsights({
       config: {
         connectionString,
         enableCorsCorrelation: true,
-        enableUnhandledPromiseRejectionTracking: true
+        enableUnhandledPromiseRejectionTracking: true,
+        // Reverse-geocoding URLs contain coordinates and must never become dependencies.
+        excludeRequestFromAutoTrackingPatterns: [/^https:\/\/api\.bigdatacloud\.net\//]
       }
     });
 
     appInsights.addTelemetryInitializer((envelope) => {
       envelope.tags = envelope.tags || {};
       envelope.tags["ai.cloud.role"] = "mtb-jeopardy-web";
-      const anonymousId = appInsights.context?.user?.id || null;
       envelope.data = envelope.data || {};
-      envelope.data.user = JSON.stringify({
-        anonymousId,
-        guestName: anonymousId ? `Guest-${anonymousId.slice(0, 8)}` : null,
-        sessionId: appInsights.context?.getSessionId?.() || null,
-        identity: { displayName: null, email: null, authenticatedId: null },
-        ...browserContext,
-        location: { city: null, region: null, country: null }
-      });
+      envelope.data.user = JSON.stringify(getUserContext());
     });
     appInsights.loadAppInsights();
     appInsights.trackPageView({ name: document.title });
 
     global.jeopardyTelemetry = {
       enabled: true,
+      getUserContext,
       trackEvent(name, properties = {}, measurements = {}) {
         appInsights.trackEvent({ name, properties, measurements });
       },
@@ -116,6 +144,7 @@
       }
     };
   } catch (error) {
+    appInsights = undefined;
     console.warn("Application Insights browser telemetry could not start.", error);
   }
 }(window));

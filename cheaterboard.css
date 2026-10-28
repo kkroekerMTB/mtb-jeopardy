@@ -1,0 +1,50 @@
+.cheaterboard-tab,
+.filter-button.cheaterboard-tab.active {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff2d5;
+  border-color: #fa594a;
+  background: linear-gradient(#341010, #170b0c);
+  animation: cheaterboard-pulse 2.6s ease-in-out infinite;
+}
+.cheaterboard-tab img { width: 20px; height: 24px; image-rendering: pixelated; animation: cheaterboard-flame .6s steps(2, end) infinite alternate; }
+.cheaterboard-tab img:last-child { animation-delay: -.3s; }
+.cheaterboard-active .leaderboard-card { background: #101015; }
+.cheaterboard-active h2 { color: #fff; }
+.cheaterboard-active .leaderboard-controls { padding-bottom: 18px; border-bottom: 1px solid #b73b32; }
+.cheaterboard-active #leaderboardSummary { display: none; }
+.cheaterboard { padding: 4px 0; color: #f6f3f3; }
+.cheaterboard .eyebrow { color: #f87563; font-size: 10px; letter-spacing: .2em; font-weight: bold; text-transform: uppercase; }
+.cheaterboard h3 { margin: 10px 0; font-size: 32px; color: #fff3e9; text-shadow: 0 0 35px #e7352c50; }
+.cheaterboard .intro { margin: 0; color: #bba9ac; font-size: 13px; line-height: 1.7; }
+.cheaterboard-metrics { display: grid; grid-template-columns: repeat(3, 1fr); margin: 22px 0; border: 1px solid #4b2829; background: #1e1215; border-radius: 7px; }
+.cheaterboard-metric { padding: 15px 19px; }
+.cheaterboard-metric + .cheaterboard-metric { border-left: 1px solid #4b2829; }
+.cheaterboard-metric strong { display: block; font-size: 27px; color: #ff7863; }
+.cheaterboard-metric span { display: block; margin-top: 5px; font-size: 11px; color: #bc9fa2; }
+.cheaterboard-status { font-size: 12px; color: #c6afb1; line-height: 1.6; }
+.cheaterboard-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cheaterboard-table th { text-align: left; color: #bba0a3; font-size: 10px; letter-spacing: .12em; }
+.cheaterboard-table th, .cheaterboard-table td { padding: 16px 12px; border-bottom: 1px solid #382025; }
+.cheaterboard-table tbody > tr:first-child { background: #39161a55; }
+.cheaterboard-guest { display: block; margin-top: 5px; color: #ac969b; font: 11px monospace; }
+.cheaterboard-count { display: inline-block; padding: 6px 9px; border: 1px solid #7d2d32; border-radius: 5px; background: #44171c; color: #ff8c79; font-size: 16px; }
+.cheaterboard-details-button { border: 0; padding: 5px; background: transparent; color: #f38e7e; cursor: pointer; }
+.cheaterboard-details { background: #241217; }
+.cheaterboard-details dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 17px 22px; margin: 0; padding: 8px 0; }
+.cheaterboard-details dt { font-size: 10px; color: #bd969e; margin-bottom: 6px; }
+.cheaterboard-details dd { margin: 0; color: #e2c9ce; font-size: 12px; overflow-wrap: anywhere; }
+.cheaterboard-foot { border-top: 1px solid #48262c; margin-top: 20px; padding-top: 16px; color: #b89ca3; font-size: 11px; line-height: 1.7; }
+.location-sharing { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 15px; font-size: 12px; color: #c9cfeb; }
+.location-sharing button { padding: 8px 12px; border: 1px solid #59628f; border-radius: 6px; background: #1b2140; color: #fff; cursor: pointer; }
+.location-consent { width: min(500px, 90vw); padding: 28px; background: #141c4b; color: #fff; border: 1px solid #6a75bf; border-radius: 12px; }
+.location-consent::backdrop { background: #030612b8; }
+.location-consent h2 { margin: 0 0 16px; }
+.location-consent p { font-size: 14px; line-height: 1.7; color: #c9cfeb; }
+.location-consent .consent-actions { display: flex; gap: 10px; margin-top: 22px; }
+.location-consent button { padding: 11px 14px; border: 1px solid #6a75bf; border-radius: 6px; color: #fff; background: #222e68; cursor: pointer; }
+.location-consent #allowLocation { background: #f5ce37; color: #101b56; font-weight: bold; }
+@keyframes cheaterboard-pulse { 0%, 100% { box-shadow: 0 0 12px #ff302b40; } 50% { box-shadow: 0 0 24px #ff302b80; border-color: #ffad71; } }
+@keyframes cheaterboard-flame { to { transform: translateY(-2px) scaleX(.85); filter: brightness(1.25); } }
+@media (prefers-reduced-motion: reduce) { .cheaterboard-tab, .cheaterboard-tab img { animation: none; } }

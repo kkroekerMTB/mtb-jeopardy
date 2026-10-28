@@ -9,6 +9,9 @@
   <script src="telemetry-config.js"></script>
   <script src="node_modules/@microsoft/applicationinsights-web/browser/es5/ai.3.gbl.min.js"></script>
   <script src="telemetry.js"></script>
+  <link rel="stylesheet" href="cheaterboard.css">
+  <script src="location-sharing.js" defer></script>
+  <script src="cheaterboard.js"></script>
   <style>
     :root {
       --board-blue: #071f8f;
@@ -825,6 +828,11 @@
           <input id="sessionFile" class="visually-hidden" type="file" accept=".json,application/json" />
           <a class="toolbar-button" href="data/jeopardy-session-template.json" download="jeopardy-session-template.json">Download Template</a>
         </div>
+        <div class="location-sharing" aria-label="Location sharing">
+          <span id="locationSharingStatus" role="status" aria-live="polite">Location sharing is optional</span>
+          <button id="shareLocation" type="button">Share location</button>
+          <button id="stopSharingLocation" type="button" hidden>Stop sharing</button>
+        </div>
       </div>
       <div class="score-panel">
         <button id="submitScore" class="toolbar-button submit-score-button" type="button">Submit score</button>
@@ -866,9 +874,9 @@
     <article class="leaderboard-card">
       <button id="closeLeaderboard" class="close-button" type="button" aria-label="Close leaderboard">&times;</button>
       <h2>Leaderboard</h2>
-      <div id="leaderboardFilters" class="leaderboard-controls" role="tablist" aria-label="Score filters"></div>
+      <div id="leaderboardFilters" class="leaderboard-controls" role="tablist" aria-label="Leaderboard views"></div>
       <div id="leaderboardSummary" class="leaderboard-summary"></div>
-      <table class="leaderboard-table">
+      <table id="scoreLeaderboardTable" class="leaderboard-table">
         <thead>
           <tr>
             <th scope="col">Team</th>
@@ -881,9 +889,28 @@
         </thead>
         <tbody id="leaderboardBody"></tbody>
       </table>
+      <section id="cheaterboard" class="cheaterboard" aria-label="Cheaterboard" hidden>
+        <div class="eyebrow">Caught in the act</div>
+        <h3>Playing with fire.</h3>
+        <p class="intro">Revealed the answer. Closed the clue. Never took the hit.<br>Every recorded cheat counts. The most cheats take the top spot.</p>
+        <div id="cheaterboardStatus" class="cheaterboard-status" role="status" aria-live="polite"></div>
+        <div id="cheaterboardResults"></div>
+        <p class="cheaterboard-foot">A cheat is counted when a revealed clue is closed without marking it correct or missed.<br>Known details only. Location appears only when shared. Counts start with this feature’s release.</p>
+      </section>
       <div id="leaderboardEmpty" class="leaderboard-empty" hidden>No scores are available for this filter.</div>
     </article>
   </section>
+
+  <dialog id="locationConsent" class="location-consent" aria-labelledby="locationConsentTitle">
+    <h2 id="locationConsentTitle">Share where you’re playing?</h2>
+    <p>With your permission, we’ll send your device’s current coordinates to <a href="https://www.bigdatacloud.com/privacy-policy" target="_blank" rel="noopener noreferrer">BigDataCloud</a> to find your city, region, and country. The provider also receives your IP address and uses these signals to improve its location data.</p>
+    <p><strong>Your city, region, and country will be attached to future app telemetry, including cheat events, and may appear alongside your team or guest name on the Cheaterboard, visible to other players.</strong></p>
+    <p>Exact coordinates won’t be stored in our telemetry or displayed. You can keep playing without sharing and stop future sharing at any time. Stopping won’t erase previously recorded events.</p>
+    <div class="consent-actions">
+      <button id="allowLocation" type="button">Continue to browser permission</button>
+      <button id="declineLocation" type="button">Not now</button>
+    </div>
+  </dialog>
 
   <section id="submitScoreOverlay" class="overlay" aria-modal="true" role="dialog" aria-label="Submit score" hidden>
     <article class="confirmation-card">
@@ -954,11 +981,14 @@
     const GAME_RULES_URL = "data/game-rules.json";
     const LEADERBOARD_API_URL = "https://app-mtb-jeopardy-ftdbbcefh2dqd9d0.canadaeast-01.azurewebsites.net/api/scores";
     const SUBMIT_SCORE_API_URL = LEADERBOARD_API_URL;
+    const CHEATERBOARD_API_URL = new URL("cheats", LEADERBOARD_API_URL).toString();
+    window.jeopardyCheaterboard.setup(CHEATERBOARD_API_URL);
 
     const LEADERBOARD_FILTERS = [
       { id: "today", label: "Today" },
       { id: "this-week", label: "This week" },
-      { id: "all-time", label: "All time" }
+      { id: "all-time", label: "All time" },
+      { id: "cheaterboard", label: "Cheaterboard" }
     ];
 
     const state = {
@@ -1034,6 +1064,7 @@
       markMissed: document.getElementById("markMissed")
     };
 
+    let leaderboardRequestVersion = 0;
     init();
 
     async function init() {
@@ -1965,6 +1996,16 @@
         button.className = "filter-button";
         button.dataset.filter = filter.id;
         button.textContent = filter.label;
+        if (filter.id === "cheaterboard") {
+          button.classList.add("cheaterboard-tab");
+          for (const position of ["before", "after"]) {
+            const flame = document.createElement("img");
+            flame.src = "media/cheaterboard-flame.svg";
+            flame.alt = "";
+            if (position === "before") button.prepend(flame);
+            else button.append(flame);
+          }
+        }
         button.addEventListener("click", () => selectLeaderboardFilter(filter.id));
         els.leaderboardFilters.append(button);
       });
@@ -1975,10 +2016,10 @@
     }
 
     async function openLeaderboard() {
-      await renderLeaderboard();
       els.leaderboardOverlay.hidden = false;
       els.leaderboardOverlay.classList.add("active");
       document.body.classList.add("overlay-open");
+      await renderLeaderboard();
     }
 
     function closeLeaderboardPanel() {
@@ -2010,6 +2051,16 @@
     }
 
     async function renderLeaderboard() {
+      const version = ++leaderboardRequestVersion;
+      const cheating = state.leaderboardFilter === "cheaterboard";
+      els.leaderboardOverlay.classList.toggle("cheaterboard-active", cheating);
+      document.getElementById("scoreLeaderboardTable").hidden = cheating;
+      document.getElementById("cheaterboard").hidden = !cheating;
+      if (cheating) {
+        els.leaderboardEmpty.hidden = true;
+        await window.jeopardyCheaterboard.render();
+        return;
+      }
       els.leaderboardSummary.textContent = "Loading leaderboard...";
       els.leaderboardBody.replaceChildren();
       els.leaderboardEmpty.hidden = true;
@@ -2018,12 +2069,14 @@
       try {
         scores = await fetchLeaderboardScores(state.leaderboardFilter);
       } catch (error) {
+        if (version !== leaderboardRequestVersion) return;
         console.error(error);
         els.leaderboardSummary.textContent = "Unable to load leaderboard.";
         els.leaderboardEmpty.hidden = false;
         return;
       }
 
+      if (version !== leaderboardRequestVersion) return;
       els.leaderboardSummary.textContent = `Showing ${scores.length} teams for ${LEADERBOARD_FILTERS.find((filter) => filter.id === state.leaderboardFilter).label}.`;
       els.leaderboardBody.replaceChildren();
       els.leaderboardEmpty.hidden = scores.length > 0;
@@ -2106,6 +2159,7 @@
           trackTelemetryEvent("clue_abandoned", properties);
         } else {
           trackTelemetryEvent("clue_cheated", properties);
+          window.jeopardyCheaterboard.record(properties);
         }
         animateClueClose();
       }

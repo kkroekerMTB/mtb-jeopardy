@@ -4,11 +4,12 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 const { initializeServerTelemetry } = require("../server-telemetry");
 
-function startBrowserTelemetry({ navigator = {}, screen, intl = Intl, connectionString = "InstrumentationKey=test" } = {}) {
+function startBrowserTelemetry({ navigator = {}, screen, location, storage, intl = Intl, connectionString = "InstrumentationKey=test" } = {}) {
   const envelopes = [];
   let sdk;
   class ApplicationInsights {
-    constructor() {
+    constructor(options) {
+      this.config = options.config;
       sdk = this;
       this.context = { user: { id: "anonymous-browser-123" }, getSessionId: () => "session-123" };
     }
@@ -25,6 +26,9 @@ function startBrowserTelemetry({ navigator = {}, screen, intl = Intl, connection
   }
   const window = {
     navigator, screen, Intl: intl,
+    localStorage: storage,
+    crypto: { randomUUID: () => "e549ab20-3acc-4dc2-9b1f-24f79ac5dc90" },
+    jeopardyLocation: { getLocation: () => location || { city: null, region: null, country: null } },
     jeopardyTelemetryConfig: { connectionString },
     Microsoft: { ApplicationInsights: { ApplicationInsights } }
   };
@@ -142,4 +146,39 @@ test("server telemetry starts Azure Monitor with a stable service name", () => {
       connectionString: "InstrumentationKey=test-key"
     }
   }]);
+});
+
+
+test("consented city-level location is shared by event telemetry and Cheaterboard context", () => {
+  const location = { city: "State College", region: "Pennsylvania", country: "United States" };
+  const { telemetry, envelopes } = startBrowserTelemetry({ location });
+  telemetry.trackEvent("clue_cheated", { teamName: "Team A" });
+  assert.deepEqual(JSON.parse(envelopes[1].data.user), JSON.parse(JSON.stringify(telemetry.getUserContext())));
+  assert.deepEqual(JSON.parse(envelopes[1].data.user).location, location);
+  location.city = null;
+  location.region = null;
+  location.country = null;
+  telemetry.trackEvent("clue_answered");
+  assert.deepEqual(JSON.parse(envelopes[2].data.user).location, { city: null, region: null, country: null });
+});
+
+
+test("coordinate-bearing provider requests are excluded from automatic telemetry", () => {
+  const { sdk } = startBrowserTelemetry();
+  const url = "https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=40.8&longitude=-77.9";
+  assert.ok(sdk.config.excludeRequestFromAutoTrackingPatterns.some((pattern) => pattern.test(url)));
+  assert.ok(!sdk.config.excludeRequestFromAutoTrackingPatterns.some((pattern) => pattern.test("https://example.test/api/cheats")));
+});
+
+
+test("Cheaterboard has a stable local guest identity when Application Insights is disabled", () => {
+  const saved = new Map();
+  const storage = { getItem: (key) => saved.get(key), setItem: (key, value) => saved.set(key, value) };
+  const first = startBrowserTelemetry({connectionString: "", storage});
+  const context = JSON.parse(JSON.stringify(first.telemetry.getUserContext()));
+  assert.equal(context.anonymousId, "e549ab20-3acc-4dc2-9b1f-24f79ac5dc90");
+  assert.equal(context.guestName, "Guest-e549ab20");
+  assert.equal(first.envelopes.length, 0);
+  const second = startBrowserTelemetry({connectionString: "", storage});
+  assert.equal(second.telemetry.getUserContext().anonymousId, context.anonymousId);
 });

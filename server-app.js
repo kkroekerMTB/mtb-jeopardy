@@ -1,6 +1,7 @@
 const express = require("express");
 const path = require("node:path");
 const gameRules = require("./data/game-rules.json");
+const { registerCheaterboard } = require("./cheaterboard-server");
 
 const MAX_SUBMITTED_QUESTIONS = gameRules.maxSubmittedQuestions;
 
@@ -144,7 +145,7 @@ function parseBeforeCutoff(value) {
     return cutoff;
 }
 
-function createLeaderboardApp(client) {
+function createLeaderboardApp(client, { cheatClient } = {}) {
     const app = express();
 
     app.use(express.json({ limit: "16kb" }));
@@ -163,6 +164,8 @@ function createLeaderboardApp(client) {
 
         return next();
     });
+
+    registerCheaterboard(app, cheatClient);
 
     app.get("/api/source-episodes", async (req, res) => {
         const cutoff = parseBeforeCutoff(req.query.before);
@@ -240,6 +243,13 @@ function createLeaderboardApp(client) {
     });
 
     app.use("/", express.static(path.resolve(__dirname)));
+
+    app.use((error, req, res, next) => {
+        if (req.path === "/api/cheats" && (error.type === "entity.parse.failed" || error.type === "entity.too.large")) {
+            return res.status(error.status).json({ error: "Invalid cheat event JSON or payload size." });
+        }
+        return next(error);
+    });
 
     return app;
 }

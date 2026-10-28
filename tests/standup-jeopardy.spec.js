@@ -8,6 +8,10 @@ const latestGameUrl = "https://www.j-archive.com/showgame.php?game_id=9999";
 test.describe("Standup Jeopardy", () => {
   test.beforeEach(async ({ page }) => {
     await routeGameData(page);
+    await page.route("**/api/cheats", (route) => route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ players: [], totalEvents: 0, namedTeams: 0 })
+    }));
   });
 
   test("loads generated game data, renders the board, and shows metadata", async ({ page }) => {
@@ -447,6 +451,11 @@ test.describe("Standup Jeopardy", () => {
 
   test("reports cheating when a clue is closed after the response is viewed", async ({ page }) => {
     await installTelemetrySpy(page);
+    const events = [];
+    await page.route("**/api/cheats", (route) => {
+      events.push(route.request().postDataJSON());
+      return route.fulfill({status: 201, contentType: "application/json", body: "{}"});
+    });
     await page.goto(appUrl);
 
     await page.getByRole("textbox", { name: /team name/i }).fill("The A Team");
@@ -461,6 +470,9 @@ test.describe("Standup Jeopardy", () => {
       },
       measurements: {}
     });
+    await expect.poll(() => events.length).toBe(1);
+    expect(events[0]).toMatchObject({teamName: "The A Team", user: {anonymousId: "anonymous-browser-123"}});
+    expect(events[0].eventId).toMatch(/^[0-9a-f-]{36}$/);
   });
 
   test("omits the team name from abandoned and cheated clues when it is not configured", async ({ page }) => {
@@ -705,6 +717,106 @@ test.describe("Standup Jeopardy", () => {
     await expect(page.locator("#leaderboardSummary")).toHaveText(/Showing 3 teams for All time/);
   });
 
+  test("Cheaterboard follows All time and reveals only known player details", async ({ page }) => {
+    await routeLeaderboardScores(page);
+    await page.route("**/api/cheats", (route) => route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({totalEvents: 4, namedTeams: 1, players: [{
+        anonymousId: "player-123", teamName: "The A Team", cheats: 4,
+        lastCaught: "2026-10-28T14:00:00.000Z",
+        user: {anonymousId: "player-123", guestName: "Guest-player-1",
+          browser: {name: "Edge", version: "141"}, device: {operatingSystem: "Windows"},
+          location: {city: "State College", region: "Pennsylvania", country: "United States"},
+          identity: {email: null}}
+      }]})
+    }));
+    await page.goto(appUrl);
+    await page.getByRole("button", { name: "Leaderboard", exact: true }).click();
+    await expect(page.locator("#leaderboardFilters button")).toHaveText(["Today", "This week", "All time", /Cheaterboard/]);
+    await page.getByRole("button", { name: "Cheaterboard" }).click();
+    await expect(page.getByRole("heading", { name: "Playing with fire." })).toBeVisible();
+    await expect(page.locator("#cheaterboard")).toContainText("The A Team");
+    await page.getByRole("button", {name: "Details for The A Team"}).click();
+    await expect(page.locator("#cheaterboard")).toContainText("State College");
+    await expect(page.locator("#cheaterboard")).toContainText("Windows");
+    await expect(page.locator("#cheaterboard")).not.toContainText("null");
+    await expect(page.locator("#cheaterboard")).not.toContainText("Email");
+    await page.getByRole("button", { name: "All time", exact: true }).click();
+    await expect(page.getByRole("columnheader", {name: "DD Amount"})).toBeVisible();
+    await expect(page.locator("#cheaterboard")).toBeHidden();
+  });
+
+  test("Cheaterboard recording retries the same event without blocking clue closing", async ({ page }) => {
+    await installTelemetrySpy(page);
+    const events = [];
+    await page.route("**/api/cheats", (route) => {
+      events.push(route.request().postDataJSON());
+      return route.fulfill({status: events.length === 1 ? 503 : 201, contentType: "application/json", body: "{}"});
+    });
+    await page.goto(appUrl);
+    const tile = page.getByRole("button", { name: "$600" }).first();
+    await tile.click();
+    await page.locator("#closeClue").click();
+    await expect(page.locator("#overlay")).toBeHidden();
+    expect(events).toHaveLength(0);
+    await tile.click();
+    await revealResponse(page);
+    await page.locator("#closeClue").click();
+    await expect(page.locator("#overlay")).toBeHidden();
+    await expect.poll(() => events.length).toBe(2);
+    expect(events[0]).toEqual(events[1]);
+    await tile.click();
+    await revealResponse(page);
+    await page.getByRole("button", {name: "Missed", exact: true}).click();
+    await expect(page.locator("#overlay")).toBeHidden();
+    expect(events).toHaveLength(2);
+  });
+
+  test("Cheaterboard shows separate empty and unavailable states", async ({ page }) => {
+    await routeLeaderboardScores(page);
+    await page.goto(appUrl);
+    await page.getByRole("button", {name: "Leaderboard", exact: true}).click();
+    await page.getByRole("button", {name: "Cheaterboard"}).click();
+    await expect(page.locator("#cheaterboard")).toContainText("No cheat events recorded yet.");
+    await page.route("**/api/cheats", (route) => route.fulfill({status: 503, body: "{}"}));
+    await page.getByRole("button", {name: "Cheaterboard"}).click();
+    await expect(page.locator("#cheaterboardStatus")).toContainText("Unable to load Cheaterboard");
+  });
+
+  test("only consented city-level location reaches future cheat events", async ({ page, context }) => {
+    await installTelemetrySpy(page);
+    await context.grantPermissions(["geolocation"]);
+    await context.setGeolocation({latitude: 40.8, longitude: -77.9});
+    await page.route("https://api.bigdatacloud.net/**", (route) => route.fulfill({json: {
+      city: "State College", principalSubdivision: "Pennsylvania", countryName: "United States",
+      latitude: 40.8, longitude: -77.9, postcode: "16801"
+    }}));
+    const events = [];
+    await page.route("**/api/cheats", (route) => {
+      events.push(route.request().postDataJSON());
+      return route.fulfill({status: 201, json: {}});
+    });
+    await page.goto(appUrl);
+    await page.getByRole("button", {name: "Share location", exact: true}).click();
+    await expect(page.getByRole("dialog", {name: "Share where you’re playing?"})).toContainText("Cheaterboard, visible to other players");
+    await page.getByRole("button", {name: "Continue to browser permission"}).click();
+    await expect(page.locator("#locationSharingStatus")).toContainText("State College");
+    const tile = page.getByRole("button", {name: "$600"}).first();
+    await tile.click();
+    await revealResponse(page);
+    await page.locator("#closeClue").click();
+    await expect.poll(() => events.length).toBe(1);
+    expect(events[0].user.location).toEqual({city: "State College", region: "Pennsylvania", country: "United States"});
+    expect(JSON.stringify(events[0])).not.toMatch(/latitude|longitude|postcode/);
+    await expect(page.locator("#overlay")).toBeHidden();
+    await page.getByRole("button", {name: "Stop sharing", exact: true}).click();
+    await tile.click();
+    await revealResponse(page);
+    await page.locator("#closeClue").click();
+    await expect.poll(() => events.length).toBe(2);
+    expect(events[1].user.location).toEqual({city: null, region: null, country: null});
+  });
+
   test("disables zero-answer submission, then opens and cancels the capped score confirmation", async ({ page }) => {
     let submissions = 0;
     await routeScoreSubmission(page, () => {
@@ -908,10 +1020,14 @@ test("static file loads only local generated data and self-hosted dependencies",
     "telemetry-config.js",
     "node_modules/@microsoft/applicationinsights-web/browser/es5/ai.3.gbl.min.js",
     "telemetry.js",
+    "location-sharing.js",
+    "cheaterboard.js",
     "session-upload.js"
   ]);
   expect(scriptSources.every((source) => !/^https?:/i.test(source))).toBe(true);
-  expect(html).not.toMatch(/<link\s+[^>]*rel=["']?stylesheet/i);
+  const stylesheets = Array.from(html.matchAll(/<link\s+[^>]*rel="stylesheet"[^>]*href="([^"]+)"/gi), (match) => match[1]);
+  expect(stylesheets).toEqual(["cheaterboard.css"]);
+  expect(stylesheets.every((source) => !/^https?:/i.test(source))).toBe(true);
   expect(html).not.toMatch(/<img\b/i);
   expect(html).not.toContain("sample");
   expect(html).not.toContain("api.codetabs.com");
@@ -958,6 +1074,7 @@ async function installTelemetrySpy(page) {
       window.telemetryEvents = [];
       window.telemetryExceptions = [];
       window.Microsoft = { ApplicationInsights: { ApplicationInsights: class {
+        constructor() { this.context = { user: { id: "anonymous-browser-123" }, getSessionId: () => "session-123" }; }
         addTelemetryInitializer() {}
         loadAppInsights() {}
         trackPageView() {}
