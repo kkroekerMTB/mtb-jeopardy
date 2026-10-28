@@ -2,6 +2,7 @@
   "use strict";
 
   const PREFERENCE = "standup-jeopardy-location-sharing";
+  const INVITATION = "standup-jeopardy-location-invitation-seen";
   const emptyLocation = () => ({ city: null, region: null, country: null });
   let location = emptyLocation();
   let elements;
@@ -137,6 +138,14 @@
       start();
     });
     restore();
+    let seen = false;
+    try {
+      seen = localStorage.getItem(INVITATION) === "yes";
+      localStorage.setItem(INVITATION, "yes");
+    } catch {
+      // Without storage, the invitation can only be remembered for this page.
+    }
+    if (!seen && !preference()) consent.showModal();
   }
 
   window.jeopardyLocation = { getLocation: () => ({ ...location }), setup };

@@ -2,11 +2,13 @@ const { test, expect } = require("@playwright/test");
 
 const URL = "http://127.0.0.1:4173/location-fixture";
 const KEY = "standup-jeopardy-location-sharing";
+const INVITATION = "standup-jeopardy-location-invitation-seen";
 const EMPTY = { city: null, region: null, country: null };
 const PLACE = { city: "State College", region: "Pennsylvania", country: "United States" };
 
 async function fixture(page, options = {}) {
-  await page.addInitScript(({ preference, permission = "prompt", unsupported, permissionsUnavailable, delayPermission }) => {
+  await page.addInitScript(({ preference, permission = "prompt", unsupported, permissionsUnavailable, delayPermission, invitationSeen = true }) => {
+    if (invitationSeen) localStorage.setItem("standup-jeopardy-location-invitation-seen", "yes");
     if (preference) localStorage.setItem("standup-jeopardy-location-sharing", "yes");
     const status = new EventTarget();
     status.state = permission;
@@ -75,7 +77,7 @@ test("only explicit Allow gets current coordinates and shares an in-memory place
   expect(requests).toHaveLength(1);
   expect(requests[0].url()).toBe("https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=40.8&longitude=-77.9&localityLanguage=en");
   expect(await requests[0].headerValue("referer")).toBeNull();
-  expect(await page.evaluate(() => ({ ...localStorage }))).toEqual({ [KEY]: "yes" });
+  expect(await page.evaluate(() => ({ ...localStorage }))).toEqual({ [KEY]: "yes", [INVITATION]: "yes" });
   expect(await page.evaluate(() => window.browserLocation.requests[0].options.maximumAge)).toBe(0);
   await expect(page.locator("#locationSharingStatus")).toContainText("State College");
   expect(await page.evaluate(() => window.locationEvents.at(-1))).toEqual(PLACE);
@@ -281,4 +283,33 @@ test("provider timeout also covers a stalled JSON body", async ({ page }) => {
   await page.evaluate(() => window.finishJson());
   expect(await location(page)).toEqual(EMPTY);
   await expect(page.locator("#shareLocation")).toBeVisible();
+});
+
+
+test("first arrival automatically invites sharing without collecting location until Allow", async ({ page }) => {
+  const requests = await fixture(page, {invitationSeen: false});
+  await expect(page.locator("#locationConsent")).toBeVisible();
+  expect(await calls(page)).toBe(0);
+  expect(requests).toHaveLength(0);
+  await page.locator("#declineLocation").click();
+  await page.reload();
+  await expect(page.locator("#locationConsent")).not.toBeVisible();
+  expect(await calls(page)).toBe(0);
+  await allow(page);
+  expect(await calls(page)).toBe(1);
+});
+
+test("dismissing the arrival invitation with Escape is remembered on refresh", async ({ page }) => {
+  await fixture(page, {invitationSeen: false});
+  await expect(page.locator("#locationConsent")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.reload();
+  await expect(page.locator("#locationConsent")).not.toBeVisible();
+  expect(await calls(page)).toBe(0);
+});
+
+test("existing location opt-in is respected without another arrival invitation", async ({ page }) => {
+  await fixture(page, {invitationSeen: false, preference: true, permission: "granted"});
+  await expect(page.locator("#locationConsent")).not.toBeVisible();
+  await expect.poll(() => calls(page)).toBe(1);
 });

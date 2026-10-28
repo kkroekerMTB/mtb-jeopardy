@@ -7,6 +7,9 @@ const latestGameUrl = "https://www.j-archive.com/showgame.php?game_id=9999";
 
 test.describe("Standup Jeopardy", () => {
   test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("standup-jeopardy-location-invitation-seen", "yes");
+    });
     await routeGameData(page);
     await page.route("**/api/cheats", (route) => route.fulfill({
       contentType: "application/json",
@@ -1010,6 +1013,23 @@ test.describe("Standup Jeopardy", () => {
     await expect(page.getByRole("combobox")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /correct|missed/i })).toHaveCount(0);
   });
+});
+
+test("arrival prompts existing players to share location and declining preserves gameplay", async ({ page }) => {
+  await routeGameData(page);
+  await routeLeaderboardScores(page);
+  await page.goto(appUrl);
+  const consent = page.getByRole("dialog", {name: "Share where you’re playing?"});
+  await expect(consent).toBeVisible();
+  await expect(consent).toContainText("Cheaterboard, visible to other players");
+  await page.getByRole("button", {name: "Not now", exact: true}).click();
+  await expect(consent).not.toBeVisible();
+  await page.getByRole("button", {name: "$600"}).first().click();
+  await expect(page.locator("#overlay")).toBeVisible();
+  await page.reload();
+  await expect(consent).not.toBeVisible();
+  await page.getByRole("button", {name: "Share location", exact: true}).click();
+  await expect(consent).toBeVisible();
 });
 
 test("static file loads only local generated data and self-hosted dependencies", async () => {
