@@ -29,11 +29,31 @@
       }
     });
     addPattern(globalButton);
+    warmAudio(globalButton);
+
+    function createAudioContext() {
+      audioContext ||= new window.AudioContext({ latencyHint: "interactive" });
+    }
+
+    function warmAudio(control) {
+      // Prepare silently while approaching the control, then resume on press
+      // so the first boop needn't wait for a cold audio device after the click.
+      const prepare = () => {
+        if (!effectsSetting.checked) return;
+        try { createAudioContext(); } catch { /* Selection still works without audio. */ }
+      };
+      control.addEventListener("pointerenter", prepare);
+      control.addEventListener("focus", prepare);
+      control.addEventListener("pointerdown", prepareAudio);
+      control.addEventListener("keydown", event => {
+        if (event.key === "Enter" || event.key === " ") prepareAudio();
+      });
+    }
 
     async function prepareAudio() {
       if (!effectsSetting.checked) return;
       try {
-        audioContext ||= new window.AudioContext();
+        createAudioContext();
         await audioContext.resume();
       } catch {
         // Audio support must never prevent selection.
@@ -163,6 +183,7 @@
         title.textContent = category.title;
         header.replaceChildren(title);
         addPattern(header);
+        warmAudio(header);
         header.addEventListener("click", () => select(category.id));
       }
     };

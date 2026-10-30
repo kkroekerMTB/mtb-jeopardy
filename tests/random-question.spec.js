@@ -90,6 +90,7 @@ test("one remaining question skips suspense, stays eligible after closing, and d
   await expect(page.locator("#overlay")).toBeHidden();
   await random.click();
   await expect(page.locator("#overlayClue")).toHaveText("Question 1-1");
+  await expect(page.locator("#overlay")).toBeVisible();
   await expect(page.locator("#overlay")).not.toHaveClass(/animating/);
   await page.locator("#clueCard").click();
   await page.getByRole("button", { name: "Correct", exact: true }).click();
