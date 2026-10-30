@@ -48,6 +48,12 @@ button.category {
 .random-pattern span:nth-child(3n) { font-size: 23px; }
 .random-pattern span:nth-child(3n + 1) { font-size: 11px; }
 
+.category .random-pattern {
+  inset: -170px -110px;
+  display: grid;
+  grid-template-columns: repeat(4, max-content);
+}
+
 .category:enabled:hover,
 .category:enabled:focus-visible {
   background: #173b91;

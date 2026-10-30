@@ -5,7 +5,8 @@
     const pattern = document.createElement("span");
     pattern.className = "random-pattern";
     pattern.setAttribute("aria-hidden", "true");
-    for (let index = 0; index < 8; index += 1) {
+    const wordCount = control.classList.contains("category") ? 32 : 8;
+    for (let index = 0; index < wordCount; index += 1) {
       const word = document.createElement("span");
       word.textContent = "RANDOM";
       pattern.append(word);
