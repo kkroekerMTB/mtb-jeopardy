@@ -37,7 +37,7 @@ Local generation uses the production source-episode API by default. Override it 
 
 ## Custom sessions
 
-Use **Upload Session** to replace the current game with a local JSON file. The file is read only in the browser and is never sent to the server. Uploading a valid session immediately resets score and board progress while preserving the saved team name and Theme music preference. Custom sessions last only until the page is refreshed, and their scores cannot be submitted to the leaderboard.
+Use **Upload Session** to replace the current game with a local JSON file. The file is read only in the browser and is never sent to the server. Uploading a valid session immediately resets score and board progress while preserving the saved team name, Theme music preference, and Sound effects preference. Custom sessions last only until the page is refreshed, and their scores cannot be submitted to the leaderboard.
 
 The file must:
 
@@ -106,7 +106,12 @@ Download [the playable template](data/jeopardy-session-template.json) from the a
 * Do not include a New Game or Reload Latest control. Browser refresh is sufficient.
 * Show the scraped episode title/date in the header when available, but do not block board rendering if that metadata is missing.
 * Show a small source link to the loaded J-Archive episode in the header or footer. This should be a normal user-initiated link, not an external asset dependency.
-* The team should manually select tiles from the board. Do not randomize clue selection or automatically choose the next clue.
+* The team can select tiles manually, click a category header to choose a random playable question in that category, or use the global Random question button. Each playable question in the chosen scope has equal odds, including Daily Doubles and questions closed without scoring. This works for standard and custom boards, including beyond the submission scoring limit.
+* Category headers highlight on hover or keyboard focus, with muted-gold RANDOM words of varied sizes drifting upward to the right at about 30 degrees behind the readable category title. The global random button uses the same pattern continuously. Touch and reduced-motion users see static category hints; reduced motion also stops the global pattern.
+* Random selection highlights eligible tiles quickly, then slows before briefly highlighting the winner and opening it, in about three seconds total. Category highlights loop top to bottom; board highlights hop randomly. Disable competing question selection, uploads, and dialog controls during selection. There is no cancel or reroll during the animation.
+* Disable random controls when their scope has no playable questions. With one remaining question, or reduced motion enabled, use only a brief static winning highlight before opening it.
+* Play a soft 440 Hz boop per highlight change and a landing tone with the same timbre one octave higher (880 Hz). Skipped animations play only the landing tone. Finish that tone before starting the existing Daily Double sequence. Audio failures must not block selection.
+* Provide an on-by-default Sound effects checkbox, persisted separately from Theme music, which controls random-selection tones and the Daily Double sound.
 * Normalize scraped category, category-comment, clue, and response content for presentation: convert scraped HTML to plain text only, clean up whitespace, and render text clearly while preserving the original meaning. Show category comments only in an opened clue card. Strip or ignore external links, images, audio, video, formatting tags, and other resources.
 * Show correct responses exactly as scraped after plain-text cleanup. Do not normalize casing, leading articles, aliases, or wording.
 * Media-dependent clues are unsupported in the MVP. Do not render media placeholders or attempt to recover stripped image/audio/video content. If a clue contains detected image, audio, or video content, disable that tile automatically.

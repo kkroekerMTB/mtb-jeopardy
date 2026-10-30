@@ -47,7 +47,7 @@ test("Pages artifact configures and self-hosts browser telemetry", async (t) => 
   );
   await assert.doesNotReject(fs.access(path.join(outputDirectory, "telemetry.js")));
   await assert.doesNotReject(fs.access(path.join(outputDirectory, "session-upload.js")));
-  for (const asset of ["cheaterboard.js", "cheaterboard.css", "location-sharing.js"]) {
+  for (const asset of ["cheaterboard.js", "cheaterboard.css", "location-sharing.js", "random-question.js", "random-question.css"]) {
     assert.ok(html.includes(asset), `${asset} should be referenced by the deployed page`);
     await assert.doesNotReject(fs.access(path.join(outputDirectory, asset)));
   }

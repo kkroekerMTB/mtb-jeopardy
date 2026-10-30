@@ -35,7 +35,7 @@ async function buildSite(
     path.join(repositoryRoot, "telemetry.js"),
     path.join(outputDirectory, "telemetry.js")
   );
-  for (const asset of ["cheaterboard.js", "cheaterboard.css", "location-sharing.js"]) {
+  for (const asset of ["cheaterboard.js", "cheaterboard.css", "location-sharing.js", "random-question.js", "random-question.css"]) {
     await fs.copyFile(path.join(repositoryRoot, asset), path.join(outputDirectory, asset));
   }
   await fs.copyFile(

@@ -1042,11 +1042,12 @@ test("static file loads only local generated data and self-hosted dependencies",
     "telemetry.js",
     "location-sharing.js",
     "cheaterboard.js",
+    "random-question.js",
     "session-upload.js"
   ]);
   expect(scriptSources.every((source) => !/^https?:/i.test(source))).toBe(true);
   const stylesheets = Array.from(html.matchAll(/<link\s+[^>]*rel="stylesheet"[^>]*href="([^"]+)"/gi), (match) => match[1]);
-  expect(stylesheets).toEqual(["cheaterboard.css"]);
+  expect(stylesheets).toEqual(["cheaterboard.css", "random-question.css"]);
   expect(stylesheets.every((source) => !/^https?:/i.test(source))).toBe(true);
   expect(html).not.toMatch(/<img\b/i);
   expect(html).not.toContain("sample");

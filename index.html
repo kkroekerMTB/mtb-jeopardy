@@ -12,6 +12,8 @@
   <link rel="stylesheet" href="cheaterboard.css">
   <script src="location-sharing.js" defer></script>
   <script src="cheaterboard.js"></script>
+  <link rel="stylesheet" href="random-question.css" />
+  <script src="random-question.js"></script>
   <style>
     :root {
       --board-blue: #071f8f;
@@ -824,6 +826,11 @@
             <input id="themeMusicEnabled" name="themeMusicEnabled" type="checkbox" />
             Theme music
           </label>
+          <label class="music-setting" for="soundEffectsEnabled">
+            <input id="soundEffectsEnabled" type="checkbox" />
+            Sound effects
+          </label>
+          <button id="randomQuestion" class="toolbar-button random-button" type="button" aria-label="Random question" title="Random question" disabled></button>
           <button id="uploadSession" class="toolbar-button" type="button">Upload Session</button>
           <input id="sessionFile" class="visually-hidden" type="file" accept=".json,application/json" />
           <a class="toolbar-button" href="data/jeopardy-session-template.json" download="jeopardy-session-template.json">Download Template</a>
@@ -972,6 +979,7 @@
     preload="auto"
   ></audio>
   <audio id="themeMusic" src="media/Jeopardy-theme-song.mp3" preload="auto"></audio>
+  <div id="randomStatus" class="visually-hidden" role="status" aria-live="polite"></div>
 
   <script src="session-upload.js"></script>
   <script>
@@ -997,6 +1005,7 @@
       revealed: false,
       selectedTileRect: null,
       isTransitioning: false,
+      isImportingSession: false,
       leaderboardFilter: "today",
       scoreSubmitted: false,
       scoreSubmitting: false,
@@ -1065,6 +1074,15 @@
     };
 
     let leaderboardRequestVersion = 0;
+    const randomSelection = window.jeopardyRandom.setup({
+      boardElement: els.board,
+      globalButton: document.getElementById("randomQuestion"),
+      effectsSetting: document.getElementById("soundEffectsEnabled"),
+      getClues: () => state.board ? state.board.clues : [],
+      openClue,
+      isBlocked: () => state.isImportingSession || state.isTransitioning || Boolean(state.selectedClueId) ||
+        Array.from(document.querySelectorAll('[role="dialog"]')).some(dialog => !dialog.hidden)
+    });
     init();
 
     async function init() {
@@ -1225,9 +1243,10 @@
       els.board.replaceChildren();
 
       board.categories.forEach((category) => {
-        const header = document.createElement("div");
+        const header = document.createElement("button");
+        header.type = "button";
         header.className = "category";
-        header.textContent = category.title;
+        randomSelection.decorateCategory(header, category);
         els.board.append(header);
       });
 
@@ -1237,6 +1256,7 @@
           els.board.append(renderTile(clue));
         });
       }
+      randomSelection.refresh();
     }
 
     function renderTile(clue) {
@@ -1252,6 +1272,7 @@
       }
 
       tile.textContent = clue.value;
+      tile.dataset.clueId = clue.id;
 
       if (clue.outcome) {
         tile.classList.add("used");
@@ -1343,6 +1364,7 @@
     }
 
     function openClue(clueId, sourceTile) {
+      if (randomSelection.busy || state.isTransitioning || state.selectedClueId) return;
       const clue = findClue(clueId);
 
       if (!clue || clue.status !== "available" || clue.outcome) {
@@ -1380,6 +1402,7 @@
     }
 
     function playDailyDoubleSound() {
+      if (!document.getElementById("soundEffectsEnabled").checked) return;
       els.dailyDoubleSound.currentTime = 0;
       const playback = els.dailyDoubleSound.play();
 
@@ -1691,12 +1714,17 @@
       els.sessionFile.addEventListener("change", () => {
         const [file] = els.sessionFile.files;
         if (file) {
+          state.isImportingSession = true;
+          randomSelection.refresh();
           importSessionFile(file).catch((error) => {
             console.error("Couldn't read custom session", error);
             reportSessionUploadFailure(
               [{ code: "file.read", message: "The selected file could not be read." }],
               file.size
             );
+          }).finally(() => {
+            state.isImportingSession = false;
+            randomSelection.refresh();
           });
         }
       });
